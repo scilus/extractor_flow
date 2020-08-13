@@ -1,0 +1,25 @@
+ExtractorFlow pipeline
+===================
+
+Run ExtractorFlow pipeline
+
+USAGE
+
+nextflow run main.nf [OPTIONAL_ARGUMENTS] (--root)
+
+DESCRIPTION
+
+    --root=/path/to/[root]              Root folder containing multiple subjects
+
+                                        [root]
+                                        ├── S1
+                                        │   └── *.trk
+                                        └── S2
+                                            └── *.trk
+
+    --output_dir                        Directory where to write the final results.
+                                        By default, will be in "./results"
+
+AVAILABLE PROFILES (using -profile option (e.g. -profile macos))
+
+macos When this profile is used, ExtractorFlow will modify a parameter (scratch) for MacOS users.

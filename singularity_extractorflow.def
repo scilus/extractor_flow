@@ -1,0 +1,11 @@
+BootStrap: docker
+From: scilus/docker-scilpy:latest
+
+%setup
+	export ROIs=JHU_template_GIN_dil.tar.bz2
+	mkdir $SINGULARITY_ROOTFS/JHU_template_GIN_dil
+	tar -jxf $ROIs -C $SINGULARITY_ROOTFS/JHU_template_GIN_dil
+
+  export filtering_lists=filtering_lists.tar.bz2
+  mkdir $SINGULARITY_ROOTFS/filtering_lists
+	tar -jxf $filtering_lists -C $SINGULARITY_ROOTFS/filtering_lists
