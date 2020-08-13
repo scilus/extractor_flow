@@ -172,9 +172,9 @@ process split_either_end_in_cerebellum {
   atlas=params.roisFolder+params.atlas.cerebellum
   mode=params.mode.either_end
   criteria=params.criteria.exclude
-  out_extension='nocereb'
+  out_extension='wb_clean01_nocereb'
   remaining_extension='all_cereb'
-  basename=tractogram.getSimpleName()
+  basename="${sid}"
 
   template "filter_with_atlas.sh"
 }
@@ -581,7 +581,7 @@ process cereb_no_loop{
       --drawn_roi ${params.roisFolder}${params.atlas.medulla} any exclude \
       --drawn_roi ${params.roisFolder}${params.atlas.midbrainNoSCP} any exclude \
       -f \
-      --diplay_count > ${sid}_all_cereb_nocx_in_cereb_f.txt
+      --display_count > ${sid}_all_cereb_nocx_in_cereb_f.txt
 
     scil_streamlines_math.py difference ${tractogram} ${sid}_all_cereb_nocx_in_cereb_f.trk ${sid}_cereb_bin_03.trk
   """
