@@ -35,7 +35,9 @@ in_tractogram.into{for_remove_out_JHU; in_tractogram_for_get_unplausible}
 sides = params.sides?.tokenize(',')
 Channel.from(sides).into{sides_ipsi;
                          sides_split_CC_BG;
-                         sides_split_asso_in_hemi}
+                         sides_split_asso_in_hemi;
+                         sides_split_BG_Thal;
+                         sides_split_BG_Put}
 
 process Remove_Out_JHU {
     cpus 1
@@ -52,8 +54,8 @@ process Remove_Out_JHU {
 
     script:
     atlas=params.rois_folder+params.atlas.JHU
-    mode="all"
-    criteria="include"
+    mode=params.mode.both_ends
+    criteria=params.criteria.include
     out_extension='wb_in_JHU'
     remaining_extension='wb_out_JHU'
     basename="${sid}"
@@ -1116,15 +1118,15 @@ process brainstem_merge_plausible{
   END Brainstem
 */
 
-process Remove_GM {
+process Remove_out_of_CGM_DWM {
   cpus 1
-  tag = "Brain - Either end in GM"
+  tag = "Brain - Either end in CGM SWM"
 
   input:
     set sid, file(tractogram) from wb_for_split_end_in_CGMSWI
 
   output:
-    set sid, "${sid}__wb_either_CGM_SWM.trk" into wb_for_split_cc
+    set sid, "${sid}__wb_either_CGM_SWM.trk" into wb_for_extract_all_commissural
     set sid, "${sid}__no_CGM_SWM.trk" into endNotInCGMSWI
     file "${sid}__wb_either_CGM_SWM.txt" optional true
     file "${sid}__no_CGM_SWM.txt" optional true
@@ -1140,12 +1142,12 @@ process Remove_GM {
     template "filter_with_atlas.sh"
 }
 
-process Split_CC {
+process Extracting_all_commissural {
   cpus 1
-  tag = "split CC"
+  tag = "Extract all commissural"
 
   input:
-    set sid, file(tractogram) from wb_for_split_cc
+    set sid, file(tractogram) from wb_for_extract_all_commissural
 
   output:
     set sid, "${sid}__tmp_CC.trk" into cc_for_ee_BG, cc_for_remove_unplausible
@@ -1187,9 +1189,9 @@ process Split_CC_BG {
   template "filter_with_atlas.sh"
 }
 
-process Remove_Unplausible_CC {
+process First_cc_cleaning {
   cpus 1
-  tag = "Remove unplausible CC"
+  tag = "First_cc_cleaning"
 
   input:
     set sid, file(tractogram) from cc_for_remove_unplausible
@@ -1220,7 +1222,7 @@ process Remove_Unplausible_CC {
   """
 }
 
-process Split_NoCC_Asso_BG {
+process Split_no_CC_Asso_and_BG {
   cpus 1
   tag = "Split not CC in asso BG and not BG"
 
@@ -1228,7 +1230,7 @@ process Split_NoCC_Asso_BG {
     set sid, file(tractogram) from no_cc_for_split_asso_BG
 
   output:
-    set sid, "${sid}__all_subcortical_from_CGM_SWM_noCC_f.trk" into asso_BG_for
+    set sid, "${sid}__all_subcortical_from_CGM_SWM_noCC_f.trk" into asso_BG_for_split_Thal, asso_BG_for_split_Put
     file "${sid}__all_subcortical_from_CGM_SWM_noCC_f.txt" optional true
     set sid, "${sid}__asso_noBG.trk" into asso_noBG_for_split_hemi
     file "${sid}__asso_noBG.txt" optional true
@@ -1242,6 +1244,62 @@ process Split_NoCC_Asso_BG {
   basename="${sid}"
 
   template "filter_with_atlas.sh"
+}
+
+bg_list=params.bg_lists?.tokenize(',')
+Channel.from(bg_list).into{bg_thal_list;
+                           bg_put_list}
+
+process Split_BG_Thal {
+  cpus 1
+  tag = "Split BG Thal"
+
+  input:
+    set sid, file(tractogram) from asso_BG_for_split_Thal
+    each list from bg_thal_list
+    each side from sides_split_BG_Thal
+
+  output:
+    set sid, "${sid}__BG_ipsi_Thal_${list}_${side}.trk" into BG_ipsi_Thal_for_merge
+
+  script:
+    File ori_file = new File(params.filtering_lists_folder+"BG_ipsi_Thal_${list}_${side}_f.txt")
+    File new_file = File.createTempFile("tmp_filtering_list",".tmp")
+    for (line in ori_file.readLines()) {
+      new_file << line.replace("drawn_roi /JHU_template_GIN_dil/", "drawn_roi "+params.rois_folder+"/")+"\n"}
+
+    filtering_list=new_file.absolutePath
+    out_extension="BG_ipsi_Thal_${list}_${side}"
+    remaining_extension="garbage_BG_ipsi_Thal_${list}_${side}"
+    basename="${sid}"
+
+    template "filter_with_list.sh"
+}
+
+process Split_BG_Put {
+  cpus 1
+  tag = "Split BG Put"
+
+  input:
+    set sid, file(tractogram) from asso_BG_for_split_Put
+    each list from bg_thal_list
+    each side from sides_split_BG_Put
+
+  output:
+    set sid, "${sid}__BG_ipsi_Put_${list}_${side}.trk" into BG_ipsi_Put_for_merge
+
+  script:
+    File ori_file = new File(params.filtering_lists_folder+"BG_ipsi_Put_${list}_${side}_f.txt")
+    File new_file = File.createTempFile("tmp_filtering_list",".tmp")
+    for (line in ori_file.readLines()) {
+      new_file << line.replace("drawn_roi /JHU_template_GIN_dil/", "drawn_roi "+params.rois_folder+"/")+"\n"}
+
+    filtering_list=new_file.absolutePath
+    out_extension="BG_ipsi_Put_${list}_${side}"
+    remaining_extension="garbage_BG_ipsi_Put_${list}_${side}"
+    basename="${sid}"
+
+    template "filter_with_list.sh"
 }
 
 process Split_Asso_In_Hemi {
