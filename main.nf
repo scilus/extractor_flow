@@ -1276,13 +1276,29 @@ process Split_BG_Thal {
     template "filter_with_list.sh"
 }
 
+BG_ipsi_Thal_for_merge.groupTuple().map{it}.set{BG_ipsi_Thal_list_for_merge}
+
+process Merge_BG_Thal{
+  cpus 1
+  tag = "Merge BG Thal"
+  input:
+    set sid, file(tractogram) from BG_ipsi_Thal_list_for_merge
+  output:
+    set sid, "${sid}__BG_ipsi_Thal_all.trk"
+
+  script:
+  """
+  scil_streamlines_math.py concatenate ${tractogram} ${sid}__BG_ipsi_Thal_all.trk -f
+  """
+}
+
 process Split_BG_Put {
   cpus 1
   tag = "Split BG Put"
 
   input:
     set sid, file(tractogram) from asso_BG_for_split_Put
-    each list from bg_thal_list
+    each list from bg_put_list
     each side from sides_split_BG_Put
 
   output:
@@ -1300,6 +1316,22 @@ process Split_BG_Put {
     basename="${sid}"
 
     template "filter_with_list.sh"
+}
+
+BG_ipsi_Put_for_merge.groupTuple().map{it}.set{BG_ipsi_Put_list_for_merge}
+
+process Merge_BG_Put{
+  cpus 1
+  tag = "Merge BG Put"
+  input:
+    set sid, file(tractogram) from BG_ipsi_Put_list_for_merge
+  output:
+    set sid, "${sid}__BG_ipsi_Put_all.trk"
+
+  script:
+  """
+  scil_streamlines_math.py concatenate ${tractogram} ${sid}__BG_ipsi_Put_all.trk -f
+  """
 }
 
 process Split_Asso_In_Hemi {
