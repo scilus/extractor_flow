@@ -22,12 +22,6 @@ DESCRIPTION
 
 OPTIONAL ARGUMENTS (current value)
 
-    --rois_folder                        Folder containing all ROIs
-                                        By default, will be "/roisFolder/"
-
-    --filtering_lists_folder            Folder containing all filtering lists
-                                        By default, will be "/filteringList/"
-
     --debug                             Debug will output more streamline files
 
 AVAILABLE PROFILES (using -profile option (e.g. -profile macos))

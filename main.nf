@@ -1263,12 +1263,7 @@ process Split_BG_Thal {
     set sid, "${sid}__BG_ipsi_Thal_${list}_${side}.trk" into BG_ipsi_Thal_for_merge
 
   script:
-    File ori_file = new File(params.filtering_lists_folder+"BG_ipsi_Thal_${list}_${side}_f.txt")
-    File new_file = File.createTempFile("tmp_filtering_list",".tmp")
-    for (line in ori_file.readLines()) {
-      new_file << line.replace("drawn_roi /JHU_template_GIN_dil/", "drawn_roi "+params.rois_folder+"/")+"\n"}
-
-    filtering_list=new_file.absolutePath
+    filtering_list=params.filtering_lists_folder+"BG_ipsi_Thal_${list}_${side}_f.txt"
     out_extension="BG_ipsi_Thal_${list}_${side}"
     remaining_extension="garbage_BG_ipsi_Thal_${list}_${side}"
     basename="${sid}"
@@ -1305,12 +1300,7 @@ process Split_BG_Put {
     set sid, "${sid}__BG_ipsi_Put_${list}_${side}.trk" into BG_ipsi_Put_for_merge
 
   script:
-    File ori_file = new File(params.filtering_lists_folder+"BG_ipsi_Put_${list}_${side}_f.txt")
-    File new_file = File.createTempFile("tmp_filtering_list",".tmp")
-    for (line in ori_file.readLines()) {
-      new_file << line.replace("drawn_roi /JHU_template_GIN_dil/", "drawn_roi "+params.rois_folder+"/")+"\n"}
-
-    filtering_list=new_file.absolutePath
+    filtering_list=params.filtering_lists_folder+"BG_ipsi_Put_${list}_${side}_f.txt"
     out_extension="BG_ipsi_Put_${list}_${side}"
     remaining_extension="garbage_BG_ipsi_Put_${list}_${side}"
     basename="${sid}"
@@ -1464,18 +1454,13 @@ process CC_Homotopic {
   output:
     set sid, "${sid}__cc_homotopic_${pair}.trk" into CC_Homotopic
 
-  script:
-    File ori_file = new File(params.filtering_lists_folder+"CC_homo_${pair}_filtering_list_f.txt")
-    File new_file = File.createTempFile("tmp_filtering_list",".tmp")
-    for (line in ori_file.readLines()) {
-      new_file << line.replace("drawn_roi /JHU_template_GIN_dil/", "drawn_roi "+params.rois_folder+"/")+"\n"}
+    script:
+      filtering_list=params.filtering_lists_folder+"CC_homo_${pair}_filtering_list_f.txt"
+      out_extension="cc_homotopic_${pair}"
+      remaining_extension="garbage_${pair}"
+      basename="${sid}"
 
-    filtering_list=new_file.absolutePath
-    out_extension="cc_homotopic_${pair}"
-    remaining_extension="garbage_${pair}"
-    basename="${sid}"
-
-    template "filter_with_list.sh"
+      template "filter_with_list.sh"
 }
 
 /*
@@ -1499,17 +1484,10 @@ process asso_part1 {
     file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
 
   script:
+    filtering_list=params.filtering_lists_folder+"ASSO_${asso_list}_${side}_filtering_list.txt"
+    out_extension="asso_${asso_list}_${side}"
+    remaining_extension="asso_lost_${asso_list}_${side}"
+    basename="${sid}"
 
-  File ori_file = new File(params.filtering_lists_folder+"ASSO_${asso_list}_${side}_filtering_list.txt")
-  File new_file = File.createTempFile("tmp_filtering_list",".tmp")
-  for (line in ori_file.readLines()) {
-    new_file << line.replace("drawn_roi /JHU_template_GIN_dil/", "drawn_roi "+params.rois_folder+"/")+"\n"}
-
-
-  filtering_list=new_file.absolutePath
-  out_extension="asso_${asso_list}_${side}"
-  remaining_extension="asso_lost_${asso_list}_${side}"
-  basename="${sid}"
-
-  template "filter_with_list.sh"
+    template "filter_with_list.sh"
 }
