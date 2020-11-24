@@ -37,7 +37,14 @@ Channel.from(sides).into{sides_ipsi;
                          sides_split_CC_BG;
                          sides_split_asso_in_hemi;
                          sides_split_BG_Thal;
-                         sides_split_BG_Put}
+                         sides_split_BG_Put;
+                         sides_split_BG_Caud;
+                         sides_split_asso_ventral_f_o_f_p;
+                         sides_split_asso_ventral_f_t;
+                         sides_split_asso_ventral;
+                         sides_split_asso_dorsal_f_o_f_t;
+                         sides_split_asso_dorsal_f_p;
+                         sides_split_asso_dorsal}
 
 process Remove_Out_JHU {
     cpus 1
@@ -1230,7 +1237,7 @@ process Split_no_CC_Asso_and_BG {
     set sid, file(tractogram) from no_cc_for_split_asso_BG
 
   output:
-    set sid, "${sid}__all_subcortical_from_CGM_SWM_noCC_f.trk" into asso_BG_for_split_Thal, asso_BG_for_split_Put
+    set sid, "${sid}__all_subcortical_from_CGM_SWM_noCC_f.trk" into asso_BG_for_split_Thal, asso_BG_for_split_Put, asso_BG_for_split_Caud
     file "${sid}__all_subcortical_from_CGM_SWM_noCC_f.txt" optional true
     set sid, "${sid}__asso_noBG.trk" into asso_noBG_for_split_hemi
     file "${sid}__asso_noBG.txt" optional true
@@ -1323,6 +1330,47 @@ process Merge_BG_Put{
   scil_streamlines_math.py concatenate ${tractogram} ${sid}__BG_ipsi_Put_all.trk -f
   """
 }
+
+bg_caud_list=params.bg_caud_lists?.tokenize(',')
+
+process Split_BG_Caud {
+  cpus 1
+  tag = "Split BG Caud"
+
+  input:
+    set sid, file(tractogram) from asso_BG_for_split_Caud
+    each list from bg_caud_list
+    each side from sides_split_BG_Caud
+
+  output:
+    set sid, "${sid}__BG_ipsi_Caud_${list}_${side}.trk" into BG_ipsi_Caud_for_merge
+
+  script:
+    filtering_list=params.filtering_lists_folder+"BG_ipsi_Caud_${list}_${side}_f.txt"
+    out_extension="BG_ipsi_Caud_${list}_${side}"
+    remaining_extension="garbage_BG_ipsi_Caud_${list}_${side}"
+    basename="${sid}"
+
+    template "filter_with_list.sh"
+}
+
+BG_ipsi_Caud_for_merge.groupTuple().map{it}.set{BG_ipsi_Caud_list_for_merge}
+
+process Merge_BG_Caud{
+  cpus 1
+  tag = "Merge BG Caud"
+  input:
+    set sid, file(tractogram) from BG_ipsi_Caud_list_for_merge
+
+  output:
+    set sid, "${sid}__BG_ipsi_Caud_all.trk"
+
+  script:
+  """
+  scil_streamlines_math.py concatenate ${tractogram} ${sid}__BG_ipsi_Caud_all.trk -f
+  """
+}
+
 
 process Split_Asso_In_Hemi {
   cpus 1
@@ -1426,8 +1474,11 @@ process Remove_Unplausible_Long_Range_Asso {
 inCCBG.groupTuple().map{it.flatten().toList()}.set{inCCBG_List}
 assoUShape.groupTuple().map{it.flatten().toList()}.set{assoUShape_list}
 
-asso_all_intra_inter.into{asso_all_intra_inter_for_filtering;
-                       asso_all_intra_inter_plausible}
+asso_all_intra_inter.into{asso_all_intra_inter_for_ventral_f_o_f_p_filtering;
+                          asso_all_intra_inter_for_ventral_f_t_filtering;
+                          asso_all_intra_inter_for_dorsal_f_o_f_t_filtering;
+                          asso_all_intra_inter_for_dorsal_f_p_filtering;
+                          asso_all_intra_inter_plausible}
 
 asso_all_intra_inter_plausible.groupTuple().map{it.flatten().toList()}.set{asso_all_intra_inter_list}
 
@@ -1464,30 +1515,185 @@ process CC_Homotopic {
 }
 
 /*
-  ASSO
+  ASSO VENTRAL
 */
 
-asso_lists=params.asso_lists?.tokenize(',')
+asso_ventral_f_t_list=params.asso_ventral_f_t_lists?.tokenize(',')
 
-process asso_part1 {
+process asso_ventral_f_t {
   cpus 1
-  tag = "Asso filtering to get asso_SLS->SLF+AF and asso_ILS->IFOF+UF"
+  tag = "Asso Ventral filtering"
 
   input:
-    set sid, val(side), file(tractogram) from asso_all_intra_inter_for_filtering
-    each asso_list from asso_lists
+    set sid, val(side), file(tractogram) from asso_all_intra_inter_for_ventral_f_t_filtering
+    each asso_list from asso_ventral_f_t_list
 
   output:
-    set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_all_intra_inter_filtered
+    set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_all_intra_inter_ventral_f_t_for_merge
     set sid, "${sid}__asso_lost_${asso_list}_${side}.trk"
     file "${sid}__asso_${asso_list}_${side}.txt" optional true
     file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
 
   script:
-    filtering_list=params.filtering_lists_folder+"ASSO_${asso_list}_${side}_filtering_list.txt"
+    filtering_list=params.filtering_lists_folder+"ASSO_F_${asso_list}_${side}_filtering_list.txt"
     out_extension="asso_${asso_list}_${side}"
     remaining_extension="asso_lost_${asso_list}_${side}"
     basename="${sid}"
 
     template "filter_with_list.sh"
+}
+
+asso_all_intra_inter_ventral_f_t_for_merge.groupTuple().map{it}.set{asso_all_intra_inter_ventral_f_t_list_for_merge}
+
+process merge_asso_ventral_f_t {
+  cpus 1
+  tag = "Merge Asso Ventral F_T"
+
+  input:
+    set sid, val(side), file(tractogram) from asso_all_intra_inter_ventral_f_t_list_for_merge
+    each side from sides_split_asso_ventral_f_t
+
+  output:
+    set sid, val(side), "${sid}__asso_F_T_ventral_f_${side}.trk" into asso_all_intra_inter_ventral_all_f_t_for_merge
+
+  script:
+  """
+  scil_streamlines_math.py concatenate ${tractogram} ${sid}__asso_F_T_ventral_f_${side}.trk -f
+  """
+}
+
+asso_ventral_f_o_f_p_lists=params.asso_ventral_f_o_f_p_lists?.tokenize(',')
+
+process asso_ventral_f_o_f_p {
+  cpus 1
+  tag = "Asso Ventral filtering"
+
+  input:
+    set sid, val(side), file(tractogram) from asso_all_intra_inter_for_ventral_f_o_f_p_filtering
+    each asso_list from asso_ventral_f_o_f_p_lists
+
+  output:
+    set sid, val(side), "${sid}__asso_F_${asso_list}_${side}.trk" into asso_all_intra_inter_ventral_all_f_o_f_p_for_merge
+    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk"
+    file "${sid}__asso_${asso_list}_${side}.txt" optional true
+    file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
+
+  script:
+    filtering_list=params.filtering_lists_folder+"ASSO_F_${asso_list}_${side}_filtering_list.txt"
+    out_extension="asso_F_${asso_list}_${side}"
+    remaining_extension="asso_lost_${asso_list}_${side}"
+    basename="${sid}"
+
+    template "filter_with_list.sh"
+}
+
+asso_all_intra_inter_ventral_all_f_t_for_merge.groupTuple(by:[0,1]).join(asso_all_intra_inter_ventral_all_f_o_f_p_for_merge.groupTuple(by:[0,1]), by:[0,1]).map{it.flatten().toList()}.set{asso_all_intra_inter_ventral_all_for_merge}
+
+process merge_asso_ventral {
+  cpus 1
+  tag = "Merge Asso Ventral"
+
+  input:
+    set sid, val(side), file(trk01), file(trk02), file(trk03) from asso_all_intra_inter_ventral_all_for_merge
+    each side from sides_split_asso_ventral
+
+  output:
+    set sid, val(side), "${sid}__asso_all_ventral_f_${side}.trk"
+
+  script:
+  """
+  scil_streamlines_math.py concatenate ${trk01} ${trk02} ${trk03} ${sid}__asso_all_ventral_f_${side}.trk -f
+  """
+}
+
+/*
+  ASSO DORSAL
+*/
+
+asso_dorsal_f_p_lists=params.asso_dorsal_f_p_lists?.tokenize(',')
+
+process asso_dorsal_f_p {
+  cpus 1
+  tag = "Asso Dorsal F_P filtering"
+
+  input:
+    set sid, val(side), file(tractogram) from asso_all_intra_inter_for_dorsal_f_p_filtering
+    each asso_list from asso_dorsal_f_p_lists
+
+  output:
+    set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_all_intra_inter_dorsal_f_p_for_merge
+    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk"
+    file "${sid}__asso_${asso_list}_${side}.txt" optional true
+    file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
+
+  script:
+    filtering_list=params.filtering_lists_folder+"ASSO_F_${asso_list}_${side}_filtering_list.txt"
+    out_extension="asso_${asso_list}_${side}"
+    remaining_extension="asso_lost_${asso_list}_${side}"
+    basename="${sid}"
+
+    template "filter_with_list.sh"
+}
+
+asso_all_intra_inter_dorsal_f_p_for_merge.groupTuple().map{it}.set{asso_all_intra_inter_dorsal_f_p_list_for_merge}
+
+process merge_asso_dorsal_f_p {
+  cpus 1
+  tag = "Merge Asso Dorsal F_P"
+
+  input:
+    set sid, val(side), file(tractogram) from asso_all_intra_inter_dorsal_f_p_list_for_merge
+    each side from sides_split_asso_dorsal_f_p
+
+  output:
+    set sid, val(side), "${sid}__asso_F_P_dorsal_f_${side}.trk" into asso_all_intra_inter_dorsal_all_f_p_for_merge
+
+  script:
+  """
+  scil_streamlines_math.py union ${tractogram} ${sid}__asso_F_P_dorsal_f_${side}.trk -f
+  """
+}
+
+asso_dorsal_f_o_f_t_list=params.asso_dorsal_f_o_f_t_lists?.tokenize(',')
+
+process asso_dorsal_f_o_f_t {
+  cpus 1
+  tag = "Asso Dorsal F_O F_T filtering"
+
+  input:
+    set sid, val(side), file(tractogram) from asso_all_intra_inter_for_dorsal_f_o_f_t_filtering
+    each asso_list from asso_dorsal_f_o_f_t_list
+
+  output:
+    set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_all_intra_inter_dorsal_all_f_o_f_t_for_merge
+    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk"
+    file "${sid}__asso_${asso_list}_${side}.txt" optional true
+    file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
+
+  script:
+    filtering_list=params.filtering_lists_folder+"ASSO_F_${asso_list}_${side}_filtering_list.txt"
+    out_extension="asso_${asso_list}_${side}"
+    remaining_extension="asso_lost_${asso_list}_${side}"
+    basename="${sid}"
+
+    template "filter_with_list.sh"
+}
+
+asso_all_intra_inter_dorsal_all_f_p_for_merge.groupTuple(by:[0,1]).join(asso_all_intra_inter_dorsal_all_f_o_f_t_for_merge.groupTuple(by:[0,1]), by:[0,1]).map{it.flatten().toList()}.set{asso_all_intra_inter_dorsal_all_for_merge}
+
+process merge_asso_dorsal {
+  cpus 1
+  tag = "Merge Asso Dorsal"
+
+  input:
+    set sid, val(side), file(trk01), file(trk02), file(trk03) from asso_all_intra_inter_dorsal_all_for_merge
+    each side from sides_split_asso_dorsal
+
+  output:
+    set sid, val(side), "${sid}__asso_all_dorsal_f_${side}.trk"
+
+  script:
+  """
+  scil_streamlines_math.py concatenate ${trk01} ${trk02} ${trk03} ${sid}__asso_all_dorsal_f_${side}.trk -f
+  """
 }
