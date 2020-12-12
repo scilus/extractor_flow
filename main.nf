@@ -44,7 +44,12 @@ Channel.from(sides).into{sides_ipsi;
                          sides_split_asso_ventral;
                          sides_split_asso_dorsal_f_o_f_t;
                          sides_split_asso_dorsal_f_p;
-                         sides_split_asso_dorsal}
+                         sides_split_asso_dorsal;
+                         sides_split_asso_p_o;
+                         sides_split_asso_o_t;
+                         sides_split_asso_p_t;
+                         sides_split_asso_ins;
+                         sides_split_asso_cing}
 
 process Remove_Out_JHU {
     cpus 1
@@ -1478,6 +1483,11 @@ asso_all_intra_inter.into{asso_all_intra_inter_for_ventral_f_o_f_p_filtering;
                           asso_all_intra_inter_for_ventral_f_t_filtering;
                           asso_all_intra_inter_for_dorsal_f_o_f_t_filtering;
                           asso_all_intra_inter_for_dorsal_f_p_filtering;
+                          asso_all_intra_inter_for_p_o_filtering;
+                          asso_all_intra_inter_for_p_t_filtering;
+                          asso_all_intra_inter_for_o_t_filtering;
+                          asso_all_intra_inter_for_ins_filtering;
+                          asso_all_intra_inter_for_cing_filtering;
                           asso_all_intra_inter_plausible}
 
 asso_all_intra_inter_plausible.groupTuple().map{it.flatten().toList()}.set{asso_all_intra_inter_list}
@@ -1696,4 +1706,223 @@ process merge_asso_dorsal {
   """
   scil_streamlines_math.py concatenate ${trk01} ${trk02} ${trk03} ${sid}__asso_all_dorsal_f_${side}.trk -f
   """
+}
+
+/*
+  ASSO P_O
+*/
+
+asso_p_o_list=params.asso_p_o_lists?.tokenize(',')
+
+process asso_p_o {
+  cpus 1
+  tag = "Asso P_O filtering"
+
+  input:
+    set sid, val(side), file(tractogram) from asso_all_intra_inter_for_p_o_filtering
+    each asso_list from asso_p_o_list
+
+  output:
+    set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_intra_inter_p_o_for_merge
+    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk"
+    file "${sid}__asso_${asso_list}_${side}.txt" optional true
+    file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
+
+  script:
+    filtering_list=params.filtering_lists_folder+"ASSO_${asso_list}_${side}_filtering_list.txt"
+    out_extension="asso_${asso_list}_${side}"
+    remaining_extension="asso_lost_${asso_list}_${side}"
+    basename="${sid}"
+
+    template "filter_with_list.sh"
+}
+
+asso_intra_inter_p_o_for_merge.groupTuple().map{it}.set{asso_intra_inter_p_o_list_for_merge}
+
+process merge_p_o {
+  cpus 1
+  tag = "Merge Asso P_O"
+
+  input:
+    set sid, val(side), file(tractogram) from asso_intra_inter_p_o_list_for_merge
+    each side from sides_split_asso_p_o
+
+  output:
+    set sid, val(side), "${sid}__asso_all_P_O_f_${side}.trk"
+
+  script:
+  """
+  scil_streamlines_math.py concatenate ${tractogram} ${sid}__asso_all_P_O_f_${side}.trk -f
+  """
+}
+
+/*
+  ASSO P_T
+*/
+
+asso_p_t_list=params.asso_p_t_lists?.tokenize(',')
+
+process asso_p_t {
+  cpus 1
+  tag = "Asso P_T filtering"
+
+  input:
+    set sid, val(side), file(tractogram) from asso_all_intra_inter_for_p_t_filtering
+    each asso_list from asso_p_t_list
+
+  output:
+    set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_intra_inter_p_t_for_merge
+    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk"
+    file "${sid}__asso_${asso_list}_${side}.txt" optional true
+    file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
+
+  script:
+    filtering_list=params.filtering_lists_folder+"ASSO_${asso_list}_${side}_filtering_list.txt"
+    out_extension="asso_${asso_list}_${side}"
+    remaining_extension="asso_lost_${asso_list}_${side}"
+    basename="${sid}"
+
+    template "filter_with_list.sh"
+}
+
+asso_intra_inter_p_t_for_merge.groupTuple().map{it}.set{asso_intra_inter_p_t_list_for_merge}
+
+process merge_p_t {
+  cpus 1
+  tag = "Merge Asso P_T"
+
+  input:
+    set sid, val(side), file(tractogram) from asso_intra_inter_p_t_list_for_merge
+    each side from sides_split_asso_p_t
+
+  output:
+    set sid, val(side), "${sid}__asso_all_P_T_f_${side}.trk"
+
+  script:
+  """
+  scil_streamlines_math.py concatenate ${tractogram} ${sid}__asso_all_P_T_f_${side}.trk -f
+  """
+}
+
+/*
+  ASSO O_T
+*/
+
+asso_o_t_list=params.asso_o_t_lists?.tokenize(',')
+
+process asso_o_t {
+  cpus 1
+  tag = "Asso O_T filtering"
+
+  input:
+    set sid, val(side), file(tractogram) from asso_all_intra_inter_for_o_t_filtering
+    each asso_list from asso_o_t_list
+
+  output:
+    set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_intra_inter_o_t_for_merge
+    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk"
+    file "${sid}__asso_${asso_list}_${side}.txt" optional true
+    file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
+
+  script:
+    filtering_list=params.filtering_lists_folder+"ASSO_${asso_list}_${side}_filtering_list.txt"
+    out_extension="asso_${asso_list}_${side}"
+    remaining_extension="asso_lost_${asso_list}_${side}"
+    basename="${sid}"
+
+    template "filter_with_list.sh"
+}
+
+asso_intra_inter_o_t_for_merge.groupTuple().map{it}.set{asso_intra_inter_o_t_list_for_merge}
+
+process merge_o_t {
+  cpus 1
+  tag = "Merge Asso O_T"
+
+  input:
+    set sid, val(side), file(tractogram) from asso_intra_inter_o_t_list_for_merge
+    each side from sides_split_asso_o_t
+
+  output:
+    set sid, val(side), "${sid}__asso_all_O_T_f_${side}.trk"
+
+  script:
+  """
+  scil_streamlines_math.py concatenate ${tractogram} ${sid}__asso_all_O_T_f_${side}.trk -f
+  """
+}
+
+/*
+  ASSO Ins
+*/
+
+asso_ins_list=params.asso_ins_lists?.tokenize(',')
+
+process asso_ins {
+  cpus 1
+  tag = "Asso Ins filtering"
+
+  input:
+    set sid, val(side), file(tractogram) from asso_all_intra_inter_for_ins_filtering
+    each asso_list from asso_ins_list
+
+  output:
+    set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_intra_inter_ins_for_merge
+    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk"
+    file "${sid}__asso_${asso_list}_${side}.txt" optional true
+    file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
+
+  script:
+    filtering_list=params.filtering_lists_folder+"ASSO_${asso_list}_${side}_filtering_list.txt"
+    out_extension="asso_${asso_list}_${side}"
+    remaining_extension="asso_lost_${asso_list}_${side}"
+    basename="${sid}"
+
+    template "filter_with_list.sh"
+}
+
+asso_intra_inter_ins_for_merge.groupTuple().map{it}.set{asso_intra_inter_ins_list_for_merge}
+
+process merge_ins {
+  cpus 1
+  tag = "Merge Asso Ins"
+
+  input:
+    set sid, val(side), file(tractogram) from asso_intra_inter_ins_list_for_merge
+    each side from sides_split_asso_ins
+
+  output:
+    set sid, val(side), "${sid}__asso_all_Ins_f_${side}.trk"
+
+  script:
+  """
+  scil_streamlines_math.py concatenate ${tractogram} ${sid}__asso_all_Ins_f_${side}.trk -f
+  """
+}
+
+/*
+  ASSO CING
+*/
+
+process asso_Cing {
+  cpus 1
+  tag = "Asso Cing filtering"
+
+  input:
+    set sid, val(side), file(tractogram) from asso_all_intra_inter_for_cing_filtering
+    each side from sides_split_asso_cing
+
+  output:
+    set sid, val(side), "${sid}__asso_all_Cing_${side}.trk"
+    set sid, "${sid}__asso_lost_Cing_${side}.trk"
+    file "${sid}__asso_all_Cing_${side}.txt" optional true
+    file "${sid}__asso_lost_Cing_${side}.txt" optional true
+
+  script:
+    filtering_list=params.filtering_lists_folder+"ASSO_Cing_${side}_filtering_list.txt"
+    out_extension="asso_all_Cing_${side}"
+    remaining_extension="asso_lost_Cing_${side}"
+    basename="${sid}"
+
+    template "filter_with_list.sh"
 }
