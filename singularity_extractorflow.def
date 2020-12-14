@@ -9,3 +9,12 @@ From: scilus/docker-scilpy:latest
 	export filtering_lists=filtering_lists.tar.bz2
 	mkdir $SINGULARITY_ROOTFS/filtering_lists
 	tar -jxf $filtering_lists -C $SINGULARITY_ROOTFS/filtering_lists
+
+%post
+  wget http://trackvis.org/bin/TrackVis_v0.6.1_x86_64.tar.gz
+	mkdir $SINGULARITY_ROOTFS/TrackVis
+	tar -xzf TrackVis_v0.6.1_x86_64.tar.gz -C $SINGULARITY_ROOTFS/TrackVis
+	export PATH=$SINGULARITY_ROOTFS/TrackVis:$PATH
+
+%environment
+	export PATH=/TrackVis:$PATH
