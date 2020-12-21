@@ -11,6 +11,7 @@ From: scilus/docker-scilpy:latest
 	tar -jxf $filtering_lists -C $SINGULARITY_ROOTFS/filtering_lists
 
 %post
+  apt-get install -y libglu1
   wget http://trackvis.org/bin/TrackVis_v0.6.1_x86_64.tar.gz
 	mkdir $SINGULARITY_ROOTFS/TrackVis
 	tar -xzf TrackVis_v0.6.1_x86_64.tar.gz -C $SINGULARITY_ROOTFS/TrackVis

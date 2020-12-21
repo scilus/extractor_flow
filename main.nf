@@ -49,7 +49,15 @@ Channel.from(sides).into{sides_ipsi;
                          sides_split_asso_o_t;
                          sides_split_asso_p_t;
                          sides_split_asso_ins;
-                         sides_split_asso_cing}
+                         sides_split_asso_cing;
+                         sides_split_asso_frontal_be;
+                         sides_split_asso_frontal_ee;
+                         sides_split_asso_occipital_be;
+                         sides_split_asso_occipital_ee;
+                         sides_split_asso_parietal_be;
+                         sides_split_asso_parietal_ee;
+                         sides_split_asso_temporal_be;
+                         sides_split_asso_temporal_ee;}
 
 process Remove_Out_JHU {
     cpus 1
@@ -1163,7 +1171,7 @@ process Extracting_all_commissural {
 
   output:
     set sid, "${sid}__tmp_CC.trk" into cc_for_ee_BG, cc_for_remove_unplausible
-    set sid, "${sid}__wb_either_CGM_SWM__noCC.trk" into no_cc_for_split_asso_BG
+    set sid, "${sid}__wb_either_CGM_SWM_noCC.trk" into no_cc_for_split_asso_BG
     file "${sid}__wb_either_CGM_SWM_noCC.txt" optional true
     file "${sid}__tmp_CC.txt" optional true
 
@@ -1171,9 +1179,9 @@ process Extracting_all_commissural {
   atlas=params.rois_folder+params.atlas.midline
   mode=params.mode.any
   criteria=params.criteria.exclude
-  out_extension="noCC"
+  out_extension="wb_either_CGM_SWM_noCC"
   remaining_extension='tmp_CC'
-  basename=tractogram.getSimpleName()
+  basename="${sid}"
 
   template "filter_with_atlas.sh"
 }
@@ -1227,7 +1235,7 @@ process First_cc_cleaning {
     --drawn_roi ${params.rois_folder}${params.atlas.allR} both_ends exclude -f;
   if ${params.debug}
   then
-    scil_streamlines_math.py difference ${tractogram} ${sid}__CC_Cx.trk ${sid}__CC_lost.trk
+    scil_streamlines_math.py difference ${tractogram} ${sid}__CC_Cx.trk ${sid}__CC_lost.trk # -CC_BG
     scil_count_streamlines.py ${sid}__CC_lost.trk > ${sid}__CC_lost.txt
     scil_count_streamlines.py ${sid}__CC_Cx.trk > ${sid}__CC_Cx.txt
   fi
@@ -1488,10 +1496,17 @@ asso_all_intra_inter.into{asso_all_intra_inter_for_ventral_f_o_f_p_filtering;
                           asso_all_intra_inter_for_o_t_filtering;
                           asso_all_intra_inter_for_ins_filtering;
                           asso_all_intra_inter_for_cing_filtering;
+                          asso_all_intra_inter_for_be_frontal_filtering;
+                          asso_all_intra_inter_for_ee_frontal_filtering;
+                          asso_all_intra_inter_for_be_occipital_filtering;
+                          asso_all_intra_inter_for_ee_occipital_filtering;
+                          asso_all_intra_inter_for_be_parietal_filtering;
+                          asso_all_intra_inter_for_ee_parietal_filtering;
+                          asso_all_intra_inter_for_be_temporal_filtering;
+                          asso_all_intra_inter_for_ee_temporal_filtering
                           asso_all_intra_inter_plausible}
 
 asso_all_intra_inter_plausible.groupTuple().map{it.flatten().toList()}.set{asso_all_intra_inter_list}
-
 
 cc_for_merge_plausible_01.into{ccCleanedPlausible; CC_for_homotopic}
 
@@ -1523,7 +1538,9 @@ process CC_Homotopic {
 
       template "filter_with_list.sh"
 }
-
+/*
+process CC_Homotopic_merge {}
+*/
 /*
   ASSO VENTRAL
 */
@@ -1539,21 +1556,21 @@ process asso_ventral_f_t {
     each asso_list from asso_ventral_f_t_list
 
   output:
-    set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_all_intra_inter_ventral_f_t_for_merge
+    set sid, val(side), "${sid}__asso_F_${asso_list}_${side}.trk" into asso_all_intra_inter_ventral_f_t_for_merge
     set sid, "${sid}__asso_lost_${asso_list}_${side}.trk"
-    file "${sid}__asso_${asso_list}_${side}.txt" optional true
+    file "${sid}__asso_F_${asso_list}_${side}.txt" optional true
     file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
 
   script:
     filtering_list=params.filtering_lists_folder+"ASSO_F_${asso_list}_${side}_filtering_list.txt"
-    out_extension="asso_${asso_list}_${side}"
+    out_extension="asso_F_${asso_list}_${side}"
     remaining_extension="asso_lost_${asso_list}_${side}"
     basename="${sid}"
 
     template "filter_with_list.sh"
 }
 
-asso_all_intra_inter_ventral_f_t_for_merge.groupTuple().map{it}.set{asso_all_intra_inter_ventral_f_t_list_for_merge}
+asso_all_intra_inter_ventral_f_t_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_all_intra_inter_ventral_f_t_list_for_merge}
 
 process merge_asso_ventral_f_t {
   cpus 1
@@ -1561,7 +1578,6 @@ process merge_asso_ventral_f_t {
 
   input:
     set sid, val(side), file(tractogram) from asso_all_intra_inter_ventral_f_t_list_for_merge
-    each side from sides_split_asso_ventral_f_t
 
   output:
     set sid, val(side), "${sid}__asso_F_T_ventral_f_${side}.trk" into asso_all_intra_inter_ventral_all_f_t_for_merge
@@ -1605,7 +1621,6 @@ process merge_asso_ventral {
 
   input:
     set sid, val(side), file(trk01), file(trk02), file(trk03) from asso_all_intra_inter_ventral_all_for_merge
-    each side from sides_split_asso_ventral
 
   output:
     set sid, val(side), "${sid}__asso_all_ventral_f_${side}.trk"
@@ -1645,7 +1660,7 @@ process asso_dorsal_f_p {
     template "filter_with_list.sh"
 }
 
-asso_all_intra_inter_dorsal_f_p_for_merge.groupTuple().map{it}.set{asso_all_intra_inter_dorsal_f_p_list_for_merge}
+asso_all_intra_inter_dorsal_f_p_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_all_intra_inter_dorsal_f_p_list_for_merge}
 
 process merge_asso_dorsal_f_p {
   cpus 1
@@ -1653,7 +1668,6 @@ process merge_asso_dorsal_f_p {
 
   input:
     set sid, val(side), file(tractogram) from asso_all_intra_inter_dorsal_f_p_list_for_merge
-    each side from sides_split_asso_dorsal_f_p
 
   output:
     set sid, val(side), "${sid}__asso_F_P_dorsal_f_${side}.trk" into asso_all_intra_inter_dorsal_all_f_p_for_merge
@@ -1697,7 +1711,6 @@ process merge_asso_dorsal {
 
   input:
     set sid, val(side), file(trk01), file(trk02), file(trk03) from asso_all_intra_inter_dorsal_all_for_merge
-    each side from sides_split_asso_dorsal
 
   output:
     set sid, val(side), "${sid}__asso_all_dorsal_f_${side}.trk"
@@ -1737,7 +1750,7 @@ process asso_p_o {
     template "filter_with_list.sh"
 }
 
-asso_intra_inter_p_o_for_merge.groupTuple().map{it}.set{asso_intra_inter_p_o_list_for_merge}
+asso_intra_inter_p_o_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_intra_inter_p_o_list_for_merge}
 
 process merge_p_o {
   cpus 1
@@ -1745,7 +1758,6 @@ process merge_p_o {
 
   input:
     set sid, val(side), file(tractogram) from asso_intra_inter_p_o_list_for_merge
-    each side from sides_split_asso_p_o
 
   output:
     set sid, val(side), "${sid}__asso_all_P_O_f_${side}.trk"
@@ -1785,7 +1797,7 @@ process asso_p_t {
     template "filter_with_list.sh"
 }
 
-asso_intra_inter_p_t_for_merge.groupTuple().map{it}.set{asso_intra_inter_p_t_list_for_merge}
+asso_intra_inter_p_t_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_intra_inter_p_t_list_for_merge}
 
 process merge_p_t {
   cpus 1
@@ -1793,7 +1805,6 @@ process merge_p_t {
 
   input:
     set sid, val(side), file(tractogram) from asso_intra_inter_p_t_list_for_merge
-    each side from sides_split_asso_p_t
 
   output:
     set sid, val(side), "${sid}__asso_all_P_T_f_${side}.trk"
@@ -1833,7 +1844,7 @@ process asso_o_t {
     template "filter_with_list.sh"
 }
 
-asso_intra_inter_o_t_for_merge.groupTuple().map{it}.set{asso_intra_inter_o_t_list_for_merge}
+asso_intra_inter_o_t_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_intra_inter_o_t_list_for_merge}
 
 process merge_o_t {
   cpus 1
@@ -1841,7 +1852,6 @@ process merge_o_t {
 
   input:
     set sid, val(side), file(tractogram) from asso_intra_inter_o_t_list_for_merge
-    each side from sides_split_asso_o_t
 
   output:
     set sid, val(side), "${sid}__asso_all_O_T_f_${side}.trk"
@@ -1881,7 +1891,7 @@ process asso_ins {
     template "filter_with_list.sh"
 }
 
-asso_intra_inter_ins_for_merge.groupTuple().map{it}.set{asso_intra_inter_ins_list_for_merge}
+asso_intra_inter_ins_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_intra_inter_ins_list_for_merge}
 
 process merge_ins {
   cpus 1
@@ -1889,7 +1899,6 @@ process merge_ins {
 
   input:
     set sid, val(side), file(tractogram) from asso_intra_inter_ins_list_for_merge
-    each side from sides_split_asso_ins
 
   output:
     set sid, val(side), "${sid}__asso_all_Ins_f_${side}.trk"
@@ -1910,7 +1919,6 @@ process asso_Cing {
 
   input:
     set sid, val(side), file(tractogram) from asso_all_intra_inter_for_cing_filtering
-    each side from sides_split_asso_cing
 
   output:
     set sid, val(side), "${sid}__asso_all_Cing_${side}.trk"
@@ -1925,4 +1933,328 @@ process asso_Cing {
     basename="${sid}"
 
     template "filter_with_list.sh"
+}
+
+/*
+ BE ASSO FRONTAL: extracting all streamlines with both ends in a frontal gyrus (U-shape > 20 mm)
+*/
+
+asso_frontal_be_list=params.asso_frontal_be_lists?.tokenize(',')
+process asso_be_frontal_gyrus {
+  cpus 1
+  tag = "Extract be frontal gyrus"
+
+  input:
+    set sid, val(side), file(tractogram) from asso_all_intra_inter_for_be_frontal_filtering
+    each gyrus from asso_frontal_be_list
+
+  output:
+    set sid, val(side), val(gyrus), "${sid}_asso_intra_be_frontal_${gyrus}_${side}_u.trk" into asso_frontal_be_for_merge
+
+  script:
+  """
+  scil_filter_tractogram.py ${tractogram} tmp.trk --filtering_list /filtering_lists/ASSO_be_${gyrus}_${side}_filtering_list.txt -f
+  track_vis tmp.trk -u 0.5 1 -nr -o ${sid}_asso_intra_be_frontal_${gyrus}_${side}_u.trk
+  """
+}
+
+asso_frontal_be_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_frontal_be_list_for_merge}
+process merge_asso_be_frontal_gyrus{
+  cpus 1
+  tag = "Merge asso be frontal gyrus"
+
+  input:
+    set sid, val(side),  val(gyrus), file(tractogram) from asso_frontal_be_list_for_merge
+
+  output:
+    set sid, val(side), "${sid}_asso_all_intraF_f_${side}_u.trk"
+
+  script:
+  """
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraF_f_${side}_u.trk -f
+  """
+}
+
+/*
+ EE ASSO FRONTAL: extracting all streamlines with either ends in a frontal gyrus (U-shape > 20 mm)
+*/
+
+asso_frontal_ee_list = Channel.from(['SFG_MFG', 70],['SFG_IFG', 70], ['SFG_PrCG', 90], ['SFG_FrOrbG', 70], ['MFG_IFG', 70], ['MFG_PrCG', 110], ['MFG_FrOrbG', 60], ['IFG_PrCG', 110], ['IFG_FrOrbG', 60])
+asso_all_intra_inter_for_ee_frontal_filtering.combine(asso_frontal_ee_list).set{asso_frontal_ee_for_extract}
+process asso_ee_frontal_gyrus {
+  cpus 1
+  tag = "Extract be frontal gyrus"
+
+  input:
+    set sid, val(side), file(tractogram), val(gyrus), val(max_length) from asso_frontal_ee_for_extract
+
+  output:
+    set sid, val(side), val(gyrus), "${sid}_asso_intra_ee_frontal_${gyrus}_${side}.trk" into asso_frontal_ee_for_merge
+
+  script:
+  """
+  scil_filter_tractogram.py ${tractogram} tmp_01.trk --filtering_list /filtering_lists/ASSO_ee_${gyrus}_${side}_filtering_list.txt -f
+  scil_filter_streamlines_by_length.py tmp_01.trk tmp_02.trk --maxL ${max_length} -f
+  track_vis tmp_02.trk -u 0.5 1 -nr -o ${sid}_asso_intra_ee_frontal_${gyrus}_${side}.trk
+  """
+}
+
+asso_frontal_ee_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_frontal_ee_list_for_merge}
+process merge_asso_ee_frontal_gyrus{
+  cpus 1
+  tag = "Merge asso ee frontal gyrus"
+
+  input:
+    set sid, val(side),  val(gyrus), file(tractogram) from asso_frontal_ee_list_for_merge
+
+  output:
+    set sid, val(side), "${sid}_asso_all_intraF_f_${side}_u.trk"
+
+  script:
+  """
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraF_f_${side}_u.trk -f
+  """
+}
+
+/*
+ BE ASSO OCCIPITAL: extracting all streamlines with both ends in a occipital gyrus (U-shape > 20 mm)
+*/
+
+asso_occipital_be_list=params.asso_occipital_be_lists?.tokenize(',')
+process asso_be_occipital_gyrus {
+  cpus 1
+  tag = "Extract be occipital gyrus"
+
+  input:
+    set sid, val(side), file(tractogram) from asso_all_intra_inter_for_be_occipital_filtering
+    each gyrus from asso_occipital_be_list
+
+  output:
+    set sid, val(side), val(gyrus), "${sid}_asso_intra_be_occipital_${gyrus}_${side}_u.trk" into asso_occipital_be_for_merge
+
+  script:
+  """
+  scil_filter_tractogram.py ${tractogram} tmp.trk --filtering_list /filtering_lists/ASSO_be_${gyrus}_${side}_filtering_list.txt -f
+  track_vis tmp.trk -u 0.5 1 -nr -o ${sid}_asso_intra_be_occipital_${gyrus}_${side}_u.trk
+  """
+}
+
+asso_occipital_be_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_occipital_be_list_for_merge}
+process merge_asso_be_occipital_gyrus{
+  cpus 1
+  tag = "Merge asso be occipital gyrus"
+
+  input:
+    set sid, val(side),  val(gyrus), file(tractogram) from asso_occipital_be_list_for_merge
+
+  output:
+    set sid, val(side), "${sid}_asso_all_intraO_f_${side}_u.trk"
+
+  script:
+  """
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraO_f_${side}_u.trk -f
+  """
+}
+
+/*
+ EE ASSO OCCIPITAL: extracting all streamlines with either ends in a occipital gyrus (U-shape > 20 mm)
+*/
+
+asso_occipital_ee_list = Channel.from(['MOG_SOG', 60],['MOG_IOG', 50], ['MOG_CuG', 60], ['SOG_CuG', 30], ['CuG_LG', 60])
+asso_all_intra_inter_for_ee_occipital_filtering.combine(asso_occipital_ee_list).set{asso_occipital_ee_for_extract}
+process asso_ee_occipital_gyrus {
+  cpus 1
+  tag = "Extract be occipital gyrus"
+
+  input:
+    set sid, val(side), file(tractogram), val(gyrus), val(max_length) from asso_occipital_ee_for_extract
+
+  output:
+    set sid, val(side), val(gyrus), "${sid}_asso_intra_ee_occipital_${gyrus}_${side}.trk" into asso_occipital_ee_for_merge
+
+  script:
+  """
+  scil_filter_tractogram.py ${tractogram} tmp_01.trk --filtering_list /filtering_lists/ASSO_ee_${gyrus}_${side}_filtering_list.txt -f
+  scil_filter_streamlines_by_length.py tmp_01.trk tmp_02.trk --maxL ${max_length} -f
+  track_vis tmp_02.trk -u 0.5 1 -nr -o ${sid}_asso_intra_ee_occipital_${gyrus}_${side}.trk
+  """
+}
+
+asso_occipital_ee_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_occipital_ee_list_for_merge}
+process merge_asso_ee_occipital_gyrus{
+  cpus 1
+  tag = "Merge asso ee occipital gyrus"
+
+  input:
+    set sid, val(side),  val(gyrus), file(tractogram) from asso_occipital_ee_list_for_merge
+
+  output:
+    set sid, val(side), "${sid}_asso_all_intraO_f_${side}_u.trk"
+
+  script:
+  """
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraO_f_${side}_u.trk -f
+  """
+}
+
+/*
+ BE ASSO PARIETAL: extracting all streamlines with both ends in a parietal gyrus (U-shape > 20 mm)
+*/
+
+asso_parietal_be_list=params.asso_parietal_be_lists?.tokenize(',')
+process asso_be_parietal_gyrus {
+  cpus 1
+  tag = "Extract be occipital gyrus"
+
+  input:
+    set sid, val(side), file(tractogram) from asso_all_intra_inter_for_be_parietal_filtering
+    each gyrus from asso_parietal_be_list
+
+  output:
+    set sid, val(side), val(gyrus), "${sid}_asso_intra_be_parietal_${gyrus}_${side}_u.trk" into asso_parietal_be_for_merge
+
+  script:
+  """
+  scil_filter_tractogram.py ${tractogram} tmp.trk --filtering_list /filtering_lists/ASSO_be_${gyrus}_${side}_filtering_list.txt -f
+  track_vis tmp.trk -u 0.5 1 -nr -o ${sid}_asso_intra_be_parietal_${gyrus}_${side}_u.trk
+  """
+}
+
+asso_parietal_be_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_parietal_be_list_for_merge}
+process merge_asso_be_parietal_gyrus{
+  cpus 1
+  tag = "Merge asso be parietal gyrus"
+
+  input:
+    set sid, val(side),  val(gyrus), file(tractogram) from asso_parietal_be_list_for_merge
+
+  output:
+    set sid, val(side), "${sid}_asso_all_intraP_f_${side}_u.trk"
+
+  script:
+  """
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraP_f_${side}_u.trk -f
+  """
+}
+
+/*
+ EE ASSO PARIETAL: extracting all streamlines with either ends in a parietal gyrus (U-shape > 20 mm)
+*/
+
+asso_parietal_ee_list = Channel.from(['SPG_PoCG', 50], ['SPG_AG', 80], ['SPG_SMG', 70], ['SPG_PrCuG', 50], ['AG_PoCG', 10000], ['AG_SMG', 90], ['AG_PrCuG', 90] , ['SMG_PoCG', 60], ['SMG_PrCuG',100], ['PoCG_PrCuG', 80])
+asso_all_intra_inter_for_ee_parietal_filtering.combine(asso_parietal_ee_list).set{asso_parietal_ee_for_extract}
+process asso_ee_parietal_gyrus {
+  cpus 1
+  tag = "Extract be parietal gyrus"
+
+  input:
+    set sid, val(side), file(tractogram), val(gyrus), val(max_length) from asso_parietal_ee_for_extract
+
+  output:
+    set sid, val(side), val(gyrus), "${sid}_asso_intra_ee_parietal_${gyrus}_${side}.trk" into asso_parietal_ee_for_merge
+
+  script:
+  """
+  scil_filter_tractogram.py ${tractogram} tmp_01.trk --filtering_list /filtering_lists/ASSO_ee_${gyrus}_${side}_filtering_list.txt -f
+  scil_filter_streamlines_by_length.py tmp_01.trk tmp_02.trk --maxL ${max_length} -f
+  track_vis tmp_02.trk -u 0.5 1 -nr -o ${sid}_asso_intra_ee_parietal_${gyrus}_${side}.trk
+  """
+}
+
+asso_parietal_ee_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_parietal_ee_list_for_merge}
+process merge_asso_ee_parietal_gyrus{
+  cpus 1
+  tag = "Merge asso ee parietal gyrus"
+
+  input:
+    set sid, val(side),  val(gyrus), file(tractogram) from asso_parietal_ee_list_for_merge
+
+  output:
+    set sid, val(side), "${sid}_asso_all_intraP_f_${side}.trk"
+
+  script:
+  """
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraP_f_${side}.trk -f
+  """
+}
+
+/*
+ BE ASSO TEMPORAL: extracting all streamlines with both ends in a temporal gyrus and merge (U-shape > 20 mm)
+*/
+
+asso_temporal_be_list=params.asso_temporal_be_lists?.tokenize(',')
+process asso_be_temporal_gyrus {
+  cpus 1
+  tag = "Extract be temporal gyrus"
+
+  input:
+    set sid, val(side), file(tractogram) from asso_all_intra_inter_for_be_temporal_filtering
+    each gyrus from asso_temporal_be_list
+
+  output:
+    set sid, val(side), val(gyrus), "${sid}_asso_intra_be_temporal_${gyrus}_${side}_u.trk" into asso_temporal_be_for_merge
+
+  script:
+  """
+  scil_filter_tractogram.py ${tractogram} tmp.trk --filtering_list /filtering_lists/ASSO_be_${gyrus}_${side}_filtering_list.txt -f
+  track_vis tmp.trk -u 0.5 1 -nr -o ${sid}_asso_intra_be_temporal_${gyrus}_${side}_u.trk
+  """
+}
+
+asso_temporal_be_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_temporal_be_list_for_merge}
+process merge_asso_be_temporal_gyrus{
+  cpus 1
+  tag = "Merge asso be temporal gyrus"
+
+  input:
+    set sid, val(side),  val(gyrus), file(tractogram) from asso_temporal_be_list_for_merge
+
+  output:
+    set sid, val(side), "${sid}_asso_all_intraT_f_${side}_u.trk"
+
+  script:
+  """
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraT_f_${side}_u.trk -f
+  """
+}
+
+/*
+ EE ASSO TEMPORAL: extracting all streamlines with either ends in a temporal gyrus and merge (U-shape > 20 mm)
+*/
+
+asso_temporal_ee_list = Channel.from(['STG_MTG', 60], ['STG_ITG',80], ['STG_Tpole',110], ['MTG_ITG',60], ['MTG_Tpole', 100000], ['ITG_Tpole', 60])
+asso_all_intra_inter_for_ee_temporal_filtering.combine(asso_temporal_ee_list).set{asso_temporal_ee_for_extract}
+process asso_ee_temporal_gyrus {
+  cpus 1
+  tag = "Extract be temporal gyrus"
+
+  input:
+    set sid, val(side), file(tractogram), val(gyrus), val(max_length) from asso_temporal_ee_for_extract
+
+  output:
+    set sid, val(side), val(gyrus), "${sid}_asso_intra_ee_temporal_${gyrus}_${side}.trk" into asso_temporal_ee_for_merge
+
+  script:
+  """
+  scil_filter_tractogram.py ${tractogram} tmp_01.trk --filtering_list /filtering_lists/ASSO_ee_${gyrus}_${side}_filtering_list.txt -f
+  scil_filter_streamlines_by_length.py tmp_01.trk tmp_02.trk --maxL ${max_length} -f
+  track_vis tmp_02.trk -u 0.5 1 -nr -o ${sid}_asso_intra_ee_temporal_${gyrus}_${side}.trk
+  """
+}
+
+asso_temporal_ee_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_temporal_ee_list_for_merge}
+process merge_asso_ee_temporal_gyrus{
+  cpus 1
+  tag = "Merge asso ee temporal gyrus"
+
+  input:
+    set sid, val(side),  val(gyrus), file(tractogram) from asso_temporal_ee_list_for_merge
+
+  output:
+    set sid, val(side), "${sid}_asso_all_intraT_f_${side}.trk"
+
+  script:
+  """
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraT_f_${side}.trk -f
+  """
 }
