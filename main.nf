@@ -164,7 +164,7 @@ process Removing_End_In_CC_DWM {
 
   output:
     set sid, "${sid}__wb_clean01.trk" into wb_for_extract_end_in_cerebellum, for_extract_unplausible
-    set sid, "${sid}__wb_no_In_CC_DWM.trk" into unplausible_for_fornix
+    set sid, "${sid}__wb_no_In_CC_DWM.trk"
     file "${sid}__wb_clean01.txt" optional true
     file "${sid}__wb_no_In_CC_DWM.txt" optional true
 
@@ -189,7 +189,7 @@ process extract_unplausible{
     set sid, file(tractogram1), file(tractogram2) from unplausible_streamlines
 
   output:
-    set sid, "${sid}_unplausible_streamlines.trk"
+    set sid, "${sid}_unplausible_streamlines.trk" into unplausible_for_fornix
 
   script:
   """
@@ -197,6 +197,26 @@ process extract_unplausible{
                                       ${tractogram2} \
                                       ${sid}_unplausible_streamlines.trk;
   """
+}
+
+process extract_fornix{
+  cpus 1
+  tag = 'Extract fornix'
+
+  input:
+    set sid, file(tractogram) from unplausible_for_fornix
+
+  output:
+    set sid, "${sid}__fornix.trk"
+    file "${sid}__fornix.txt"
+
+  script:
+    filtering_list=params.filtering_lists_folder+"fornix_filtering_list.txt"
+    out_extension="fornix"
+    remaining_extension="unplausible_wo_fornix"
+    basename="${sid}"
+
+    template "filter_with_list.sh"
 }
 
 process extract_end_in_cerebellum {
