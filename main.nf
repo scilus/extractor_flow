@@ -164,6 +164,7 @@ process Removing_End_In_CC_DWM {
 
   output:
     set sid, "${sid}__wb_clean01.trk" into wb_for_extract_end_in_cerebellum, for_extract_unplausible
+    set sid, "${sid}__wb_no_In_CC_DWM.trk" into unplausible_for_fornix
     file "${sid}__wb_clean01.txt" optional true
 
   script:
@@ -172,6 +173,8 @@ process Removing_End_In_CC_DWM {
                     --drawn_roi ${params.rois_folder}${params.atlas.cc} either_end exclude \
                     --drawn_roi ${params.rois_folder}${params.atlas.dwm} either_end exclude \
                     -f --display_count > ${sid}__wb_clean01.txt
+  scil_streamlines_math.py difference ${wb_min20_noloop} ${sid}__wb_clean01.trk ${sid}__wb_no_In_CC_DWM.trk -f
+  scil_count_streamlines.py ${sid}__wb_clean01.trk ${sid}__wb_no_In_CC_DWM.trk > ${sid}__wb_clean01.trk ${sid}__wb_no_In_CC_DWM.txt
   """
 }
 
@@ -1421,8 +1424,9 @@ process Split_UShape_CGM_Asso {
     set sid, val(side), file(tractogram) from asso_for_extract_u_shape
 
   output:
-    set sid, "${sid}__asso_only_in_CGM_${side}.trk" into assoCGM
-    set sid, "${sid}__asso_Ushape_${side}.trk" into assoUShape
+    set sid, val(side), "${sid}__asso_only_in_CGM_${side}.trk" into assoCGM
+    set sid, val(side), "${sid}__asso_Ushape_${side}.trk" into assoUShape
+    set sid, val(side), "${sid}__asso_Ushape_${side}_u.trk" into assoUShapef
     set sid, val(side), "${sid}__asso_f_${side}.trk" into asso_for_remove_long_range
     file "${sid}__asso_only_in_CGM_${side}.txt" optional true
     file "${sid}__asso_Ushape_${side}.txt" optional true
@@ -1444,6 +1448,8 @@ process Split_UShape_CGM_Asso {
 
     scil_filter_tractogram.py ${sid}__tmp2_${side}.trk ${sid}__asso_Ushape_${side}.trk \
       --drawn_roi ${params.rois_folder}${params.atlas.DWM}_${side}.nii.gz ${params.mode.any} exclude
+
+    track_vis ${sid}__asso_Ushape_${side}.trk -u 0.5 1 -nr -o ${sid}__asso_Ushape_${side}_u.trk
 
     scil_streamlines_math.py difference ${sid}__tmp2_${side}.trk ${sid}__asso_Ushape_${side}.trk \
                                ${sid}__asso_DWM_${side}.trk -f
