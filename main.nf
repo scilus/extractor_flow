@@ -166,6 +166,7 @@ process Removing_End_In_CC_DWM {
     set sid, "${sid}__wb_clean01.trk" into wb_for_extract_end_in_cerebellum, for_extract_unplausible
     set sid, "${sid}__wb_no_In_CC_DWM.trk" into unplausible_for_fornix
     file "${sid}__wb_clean01.txt" optional true
+    file "${sid}__wb_no_In_CC_DWM.txt" optional true
 
   script:
   """
