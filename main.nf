@@ -174,7 +174,7 @@ process Removing_End_In_CC_DWM {
                     --drawn_roi ${params.rois_folder}${params.atlas.dwm} either_end exclude \
                     -f --display_count > ${sid}__wb_clean01.txt
   scil_streamlines_math.py difference ${wb_min20_noloop} ${sid}__wb_clean01.trk ${sid}__wb_no_In_CC_DWM.trk -f
-  scil_count_streamlines.py ${sid}__wb_clean01.trk ${sid}__wb_no_In_CC_DWM.trk > ${sid}__wb_clean01.trk ${sid}__wb_no_In_CC_DWM.txt
+  scil_count_streamlines.py {sid}__wb_no_In_CC_DWM.trk > ${sid}__wb_no_In_CC_DWM.txt
   """
 }
 
