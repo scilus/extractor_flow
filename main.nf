@@ -35,7 +35,6 @@ in_tractogram.into{for_remove_out_JHU; in_tractogram_for_get_unplausible}
 sides = params.sides?.tokenize(',')
 Channel.from(sides).into{sides_ipsi;
                          sides_split_CC_BG;
-                         sides_split_asso_in_hemi;
                          sides_split_BG_Thal;
                          sides_split_BG_Put;
                          sides_split_BG_Caud;
@@ -1528,7 +1527,7 @@ process CC_Homotopic {
     each pair from cc_homotopic_pairs
 
   output:
-    set sid, "${sid}__cc_homotopic_${pair}.trk" into CC_Homotopic
+    set sid, "${sid}__cc_homotopic_${pair}.trk" into CC_Homotopic_for_merge
 
     script:
       filtering_list=params.filtering_lists_folder+"CC_homo_${pair}_filtering_list_f.txt"
@@ -1538,9 +1537,25 @@ process CC_Homotopic {
 
       template "filter_with_list.sh"
 }
-/*
-process CC_Homotopic_merge {}
-*/
+
+CC_Homotopic_for_merge.groupTuple().map{it}.set{CC_Homotopic_list_for_merge}
+
+process CC_Homotopic_merge {
+  cpus 1
+  tag = "Merge CC Homotopic"
+
+input:
+  set sid, file(tractogram) from CC_Homotopic_list_for_merge
+
+output:
+  set sid, "${sid}__CC_homo.trk"
+
+script:
+  """
+  scil_streamlines_math.py concatenate ${tractogram} ${sid}__CC_homo.trk
+  """
+}
+
 /*
   ASSO VENTRAL
 */
