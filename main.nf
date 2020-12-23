@@ -30,40 +30,20 @@ else {
     error "Error ~ Please use --root for the input data."
 }
 
-in_tractogram.into{for_remove_out_JHU; in_tractogram_for_get_unplausible}
+in_tractogram.into{for_remove_out_not_JHU; in_tractogram_for_extract_first_unplausible; in_tractogram_for_extract_unplausible}
 
 sides = params.sides?.tokenize(',')
 Channel.from(sides).into{sides_ipsi;
                          sides_split_CC_BG;
                          sides_split_BG_Thal;
                          sides_split_BG_Put;
-                         sides_split_BG_Caud;
-                         sides_split_asso_ventral_f_o_f_p;
-                         sides_split_asso_ventral_f_t;
-                         sides_split_asso_ventral;
-                         sides_split_asso_dorsal_f_o_f_t;
-                         sides_split_asso_dorsal_f_p;
-                         sides_split_asso_dorsal;
-                         sides_split_asso_p_o;
-                         sides_split_asso_o_t;
-                         sides_split_asso_p_t;
-                         sides_split_asso_ins;
-                         sides_split_asso_cing;
-                         sides_split_asso_frontal_be;
-                         sides_split_asso_frontal_ee;
-                         sides_split_asso_occipital_be;
-                         sides_split_asso_occipital_ee;
-                         sides_split_asso_parietal_be;
-                         sides_split_asso_parietal_ee;
-                         sides_split_asso_temporal_be;
-                         sides_split_asso_temporal_ee;}
+                         sides_split_BG_Caud}
 
-process Remove_Out_JHU {
+process Remove_out_not_JHU {
     cpus 1
-    tag = "Remove out of JHU"
 
     input:
-      set sid, file(tractogram) from for_remove_out_JHU
+      set sid, file(tractogram) from for_remove_out_not_JHU
 
     output:
       set sid, "${sid}__wb_in_JHU.trk" into wb_for_rm_crossing_gyri
@@ -82,9 +62,8 @@ process Remove_Out_JHU {
     template "filter_with_atlas.sh"
 }
 
-process Remove_Crossing_Gyri {
+process Remove_crossing_Gyri {
   cpus 1
-  tag = "Remove crossing the gyri limits of the JHU template"
 
   input:
     set sid, file(tractogram) from wb_for_rm_crossing_gyri
@@ -106,9 +85,11 @@ process Remove_Crossing_Gyri {
    template "filter_with_atlas.sh"
 }
 
+/*
+Pruning min ${params.min_streaminline_lenght}mm
+*/
 process Pruning {
   cpus 1
-  tag = "Pruning min ${params.min_streaminline_lenght}mm"
 
   input:
     set sid, file(tractogram) from wb_for_pruning
@@ -132,9 +113,8 @@ process Pruning {
     """
 }
 
-process Remove_Loops {
+process remove_loops {
   cpus 1
-  tag = "Remove loop"
 
   input:
     set sid, file(wb_min20) from wb_for_rmloop
@@ -155,15 +135,14 @@ process Remove_Loops {
     """
 }
 
-process Removing_End_In_CC_DWM {
+process remove_ee_CC_DWM {
   cpus 1
-  tag = "Remove end in CC DWM"
 
   input:
     set sid, file(wb_min20_noloop) from wb_for_rm_end_in_cc_dwm
 
   output:
-    set sid, "${sid}__wb_clean01.trk" into wb_for_extract_end_in_cerebellum, for_extract_unplausible
+    set sid, "${sid}__wb_clean01.trk" into wb_for_extract_end_in_cerebellum, wb_for_extract_first_unplausible
     set sid, "${sid}__wb_no_In_CC_DWM.trk"
     file "${sid}__wb_clean01.txt" optional true
     file "${sid}__wb_no_In_CC_DWM.txt" optional true
@@ -179,35 +158,32 @@ process Removing_End_In_CC_DWM {
   """
 }
 
-in_tractogram_for_get_unplausible.join(for_extract_unplausible).set{unplausible_streamlines}
-
-process extract_unplausible{
+in_tractogram_for_extract_first_unplausible.join(wb_for_extract_first_unplausible).set{unplausible_streamlines}
+process extract_first_unplausible{
   cpus 1
-  tag = 'Extract unplausible'
 
   input:
     set sid, file(tractogram1), file(tractogram2) from unplausible_streamlines
 
   output:
-    set sid, "${sid}_unplausible_streamlines.trk" into unplausible_for_fornix
+    set sid, "${sid}__unplausible_streamlines.trk" into unplausible_for_fornix
 
   script:
   """
   scil_streamlines_math.py difference ${tractogram1} \
                                       ${tractogram2} \
-                                      ${sid}_unplausible_streamlines.trk;
+                                      ${sid}__unplausible_streamlines.trk;
   """
 }
 
 process extract_fornix{
   cpus 1
-  tag = 'Extract fornix'
 
   input:
     set sid, file(tractogram) from unplausible_for_fornix
 
   output:
-    set sid, "${sid}__fornix.trk"
+    set sid, "${sid}__fornix.trk" into fornix_for_trk_plausible
     file "${sid}__fornix.txt"
 
   script:
@@ -219,9 +195,8 @@ process extract_fornix{
     template "filter_with_list.sh"
 }
 
-process extract_end_in_cerebellum {
+process extract_ee_in_cerebellum {
   cpus 1
-  tag = "Extract either end in cerebellum"
 
   input:
     set sid, file(tractogram) from wb_for_extract_end_in_cerebellum
@@ -247,10 +222,8 @@ process extract_end_in_cerebellum {
   Cerebellum
 */
 
-process Cerebellum_Remove_Cortex_GM {
-
+process cerebellum_remove_cortex_GM {
   cpus 1
-  tag = "Cereb - Remove End In Cortex GM"
 
   input:
     set sid, file(tractogram) from cerebellum_for_rm_cortex_gm
@@ -272,9 +245,8 @@ process Cerebellum_Remove_Cortex_GM {
     template "filter_with_atlas.sh"
 }
 
-process Cerebellum_Remove_Not_End_In_GWM {
+process cerebellum_remove_not_end_in_GWM {
   cpus 1
-  tag = "Cereb - Remove not end in cerebellum GM"
 
   input:
     set sid, file(tractogram) from cerebellum_for_end_in_GWM
@@ -296,9 +268,8 @@ process Cerebellum_Remove_Not_End_In_GWM {
     template "filter_with_atlas.sh"
 }
 
-process Cerebellum_Split {
+process cerebellum_split_be {
   cpus 1
-  tag = "Cereb - Split - Both end in cerebellum"
 
   input:
     set sid, file(tractogram) from cerebellum_for_split_both_end_in_cerebellum
@@ -320,9 +291,8 @@ process Cerebellum_Split {
   template "filter_with_atlas.sh"
 }
 
-process Cerebellum_No_Loop{
+process cerebellum_no_loop{
   cpus 1
-  tag = "Cereb - no loop"
 
   input:
     set sid, file(tractogram) from cerebellum_for_remove_loops
@@ -344,9 +314,8 @@ process Cerebellum_No_Loop{
   """
 }
 
-process Cerebellum_In_Medulla {
+process cerebellum_in_medulla {
   cpus 1
-  tag = "Cereb - In Medulla"
 
   input:
     set sid, file(tractogram) from cerebellum_for_in_medulla
@@ -375,9 +344,8 @@ process Cerebellum_In_Medulla {
   """
 }
 
-process Cerebellum_In_Pons{
+process cerebellum_in_pons{
   cpus 1
-  tag = "Cereb - In Pons"
 
   input:
     set sid, file(tractogram) from cerebellum_for_in_pons
@@ -408,9 +376,8 @@ process Cerebellum_In_Pons{
   """
 }
 
-process Cerebellum_In_Mid_Brain{
+process cerebellum_in_mid_brain{
   cpus 1
-  tag = "Cereb - In the midbrain"
 
   input:
     set sid, file(tractogram) from cerebellum_for_in_mid_brain
@@ -440,9 +407,11 @@ process Cerebellum_In_Mid_Brain{
   """
 }
 
-process Cerebellum_In_Red_Nucleus_Thalamus{
+/*
+Cereb - One termination in the red nucleus and/or the thalamus
+*/
+process cerebellum_in_red_nucleus_thalamus{
   cpus 1
-  tag = "Cereb - One termination in the red nucleus and/or the thalamus"
 
   input:
     set sid, file(tractogram) from cerebellum_for_in_red_nuclei
@@ -470,7 +439,7 @@ process Cerebellum_In_Red_Nucleus_Thalamus{
 }
 
 cerebellum_for_merge_plausible.join(cerebellum_in_medulla_for_merge_plausible).join(cerebellum_in_midbrain_for_merge_plausible).join(cerebellum_in_pons_for_merge_plausible).join(cerebellum_in_redN_for_merge_plausible).set{cerebellum_plausible}
-process Cerebellum_merge_plausible{
+process cerebellum_merge_plausible{
  cpus 1
  tag = "Merge plausible Cerebellum"
 
@@ -478,7 +447,7 @@ process Cerebellum_merge_plausible{
    set sid, file(trk01), file(trk02), file(trk03), file(trk04), file(trk05) from cerebellum_plausible
 
  output:
-  set sid, "${sid}__cerebellum_plausible.trk"
+  set sid, "${sid}__cerebellum_plausible.trk" into cerebellum_for_trk_plausible
   file "${sid}__all_cereb_nocx_out_cereb_in_redN_and_thalamus.txt" optional true
 
  script:
@@ -498,9 +467,8 @@ process Cerebellum_merge_plausible{
 }
 
 cerebellum_bin_01.join(cerebellum_bin_02).join(cerebellum_bin_03).join(cerebellum_bin_04).set{cerebellum_unplausible}
-process Cerebellum_merge_unplausible {
+process cerebellum_merge_unplausible {
  cpus 1
- tag = "Merge unplausible Cerebellum"
 
  input:
   set sid, file(trk01), file(trk02), file(trk03), file(trk04) from cerebellum_unplausible
@@ -527,10 +495,8 @@ process Cerebellum_merge_unplausible {
   END Cerebellum
 */
 
-
-process Split_Either_End_In_Brainstem {
+process split_either_end_brainstem {
   cpus 1
-  tag = "Split either end in brainstem"
 
   input:
     set sid, file(tractogram) from wb_for_extract_end_in_brainstem
@@ -556,10 +522,8 @@ process Split_Either_End_In_Brainstem {
   Brainstem
 */
 
-process Brainstem_End_In_Brainstem {
-
+process brainstem_be_ee_brainstem {
   cpus 1
-  tag = "Brainstem - Split both_ends and either_end"
 
   input:
     set sid, file(tractogram) from brainstem_for_both_end_in_brainstem
@@ -586,9 +550,7 @@ process Brainstem_End_In_Brainstem {
 */
 
 process brainstem_be_medulla_segmentation{
-
   cpus 1
-  tag = "Brainstem - Both End - Segmentation Medulla"
 
   input:
     set sid, file(tractogram) from brainstem_for_medulla_segmentation
@@ -619,9 +581,7 @@ process brainstem_be_medulla_segmentation{
 }
 
 process brainstem_be_noCP{
-
   cpus 1
-  tag = "Brainstem - Both End - No ends in cereberal peduncles"
 
   input:
     set sid, file(tractogram) from brainstem_for_noCP
@@ -644,9 +604,7 @@ process brainstem_be_noCP{
 }
 
 process brainstem_be_split_midbrain_pons{
-
   cpus 1
-  tag = "Brainstem - Both End - Split MidBrain and Pons"
 
   input:
     set sid, file(tractogram) from brainstem_for_split_midbrain_pons
@@ -672,14 +630,13 @@ brainstem_be_medulla_for_plausible.join(brainstem_be_midbrain_for_plausible).joi
 
 process brainstem_be_merge_plausible{
   cpus 1
-  tag = "Brainstem - Both End - Concatenating plausible streamlines Brainstem"
 
   input:
-  set sid, file(trk01), file(trk02), file(trk03) from plausible_brainstem
+    set sid, file(trk01), file(trk02), file(trk03) from plausible_brainstem
 
   output:
-  set sid, "${sid}__brainstem_be_plausible_tracks.trk" into brainstem_merge_plausible_01
-  file "${sid}__brainstem_be_plausible_tracks.txt" optional true
+    set sid, "${sid}__brainstem_be_plausible_tracks.trk" into brainstem_merge_plausible_01
+    file "${sid}__brainstem_be_plausible_tracks.txt" optional true
 
   script:
   """
@@ -704,7 +661,6 @@ process brainstem_be_merge_plausible{
 
 process brainstem_ee_through_CC{
   cpus 1
-  tag = "Brainstem - either end - through CC"
 
   input:
     set sid, file(tractogram) from brainstem_for_through_cc
@@ -728,7 +684,6 @@ process brainstem_ee_through_CC{
 
 process brainstem_ee_ipsi{
   cpus 1
-  tag = "Brainstem - either end - IPSI"
 
   input:
     set sid, file(tractogram) from brainstem_for_ipsi
@@ -757,9 +712,11 @@ process brainstem_ee_ipsi{
 ipsi.groupTuple().map{it.flatten().toList()}.set{brainstem_for_merge_ipsi_noCC_02}
 brainstem_for_merge_ipsi_noCC_01.join(brainstem_for_merge_ipsi_noCC_02).set{brainstem_for_merge_ipsi_noCC}
 
+/*
+Brainstem - Merge IPSI and either end noCC
+*/
 process brainstem_ee_merge_ipsi_and_noCC{
   cpus 1
-  tags = 'Brainstem - Merge IPSI and either end noCC'
 
   input:
   set sid, file(trk01), file(trk02), file(trk03) from brainstem_for_merge_ipsi_noCC
@@ -776,9 +733,11 @@ process brainstem_ee_merge_ipsi_and_noCC{
   """
 }
 
+/*
+Brainstem - either end - remove BG, CP, Thal
+*/
 process brainstem_ee_noBG_noCP_noThal{
   cpus 1
-  tags = 'Brainstem - either end - remove BG, CP, Thal'
 
   input:
   set sid, file(tractogram) from brainstem_for_noBG_noCP_noThal
@@ -803,7 +762,6 @@ process brainstem_ee_noBG_noCP_noThal{
 
 process brainstem_ee_thalamus{
   cpus 1
-  tags = 'Brainstem - either end - Thalamus'
 
   input:
   set sid, file(tractogram) from brainstem_for_thalamus
@@ -822,7 +780,6 @@ process brainstem_ee_thalamus{
 
 process brainstem_ee_end_CGMSWM{
   cpus 1
-  tag = 'Brainstem - either end - Either end In CGM-SWM'
 
   input:
     set sid, file(tractogram) from brainstem_for_ee_cgmswm
@@ -837,9 +794,11 @@ process brainstem_ee_end_CGMSWM{
   """
 }
 
+/*
+Brainstem - Either end - End in Red Nucleus
+*/
 process brainstem_ee_red_nucleus{
   cpus 1
-  tag = 'Brainstem - Either end - End in Red Nucleus'
 
   input:
     set sid, file(tractogram) from brainstem_for_red_nucleus
@@ -860,7 +819,6 @@ process brainstem_ee_red_nucleus{
 
 process brainstem_ee_end_CGMSWM_split_thal{
   cpus 1
-  tag = 'Brainstem - End in CGMSWI no Thal'
 
   input:
     set sid, file(tractogram) from brainstem_for_split_thal
@@ -879,9 +837,11 @@ process brainstem_ee_end_CGMSWM_split_thal{
   """
 }
 
+/*
+Brainstem - Either End - End in CGMSWI Thal split IC
+*/
 process brainstem_ee_end_CGMSWM_Thal_split_IC{
   cpus 1
-  tag = 'Brainstem - Either End - End in CGMSWI Thal split IC'
 
   input:
     set sid, file(tractogram) from brainstem_for_split_IC
@@ -901,7 +861,6 @@ process brainstem_ee_end_CGMSWM_Thal_split_IC{
 
 process brainstem_ee_end_CGMSWM_Thal_IC_split_CP{
   cpus 1
-  tag = 'Brainstem - Either End - End in CGMSWI Thal IC split CP'
 
   input:
     set sid, file(tractogram) from brainstem_for_split_CP
@@ -923,7 +882,6 @@ brainstem_for_3rd_order_PoC_01.join(brainstem_for_3rd_order_PoC_02).set{brainste
 
 process brainstem_ee_3rd_order_PoC{
   cpus 1
-  tag = 'Brainstem - Either End - 3rd_order_PoC'
 
   input:
     set sid, file(trk01), file(trk02) from brainstem_for_3rd_order_PoC
@@ -942,9 +900,12 @@ process brainstem_ee_3rd_order_PoC{
 }
 
 brainstem_for_merge_and_split_pons_01.join(brainstem_for_merge_and_split_pons_02).set{brainstem_for_merge_and_split_pons}
+
+/*
+Brainstem - Either End - Merge noThal and Thal CP IC - Split Pons
+*/
 process brainstem_ee_merge_split_pons{
   cpus 1
-  tag = 'Brainstem - Either End - Merge noThal and Thal CP IC - Split Pons'
 
   input:
     set sid, file(trk01), file(trk02) from brainstem_for_merge_and_split_pons
@@ -957,15 +918,18 @@ process brainstem_ee_merge_split_pons{
   """
     scil_streamlines_math.py concatenate ${trk01} ${trk02} ${sid}__tmp01.trk
     scil_filter_tractogram.py ${sid}__tmp01.trk ${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_noThal_eePons.trk \
-      --drawn_roi ${params.rois_folder}${params.atlas.pons} ${params.mode.any} include -f
+      --drawn_roi ${params.rois_folder}${params.atlas.pons} ${params.mode.either_end} include -f
     scil_streamlines_math.py difference ${sid}__tmp01.trk ${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_noThal_eePons.trk \
         ${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_noThal_no_eePons.trk -f
   """
 }
 
+
+/*
+Brainstem - End in CGMSWI Thal IC noCP
+*/
 process brainstem_ee_corticopontic_frontal{
   cpus 1
-  tag = 'Brainstem - End in CGMSWI Thal IC noCP'
 
   input:
     set sid, file(tractogram) from brainstem_for_corticopontine_frontal
@@ -982,14 +946,17 @@ process brainstem_ee_corticopontic_frontal{
      ${sid}__all_brainstem_ee_tmp_CGM_SWM_tmp_noThal_ee_Pons_no_ee_frontal.trk -f
 
     scil_detect_streamlines_loops.py ${sid}__tmp01.trk ${sid}__tmp02.trk -a 240 -f
-    scil_outlier_rejection.py ${sid}__tmp01.trk ${sid}__all_brainstem_corticopontine_frontal.trk --alpha 0.45 -f
+    scil_outlier_rejection.py ${sid}__tmp02.trk ${sid}__all_brainstem_corticopontine_frontal.trk --alpha 0.45 -f
   """
 }
 
 brainstem_for_merge_not_ee_frontal_not_ee_pons_01.join(brainstem_for_merge_not_ee_frontal_not_ee_pons_02).set{brainstem_for_merge_not_ee_frontal_not_ee_pons_split_pons}
+
+/*
+Brainstem - Either End - Merge noThal and Thal CP IC - Split Pons
+*/
 process brainstem_ee_merge_not_ee_frontal_not_ee_pons_split_pons {
   cpus 1
-  tag = 'Brainstem - Either End - Merge noThal and Thal CP IC - Split Pons'
 
   input:
    set sid, file(trk01), file(trk02) from brainstem_for_merge_not_ee_frontal_not_ee_pons_split_pons
@@ -1010,9 +977,12 @@ process brainstem_ee_merge_not_ee_frontal_not_ee_pons_split_pons {
  """
 }
 
+/*
+Brainstem - End in CGMSWI Thal IC noCP
+*/
+
 process brainstem_ee_corticopontic_parietotemporooccipital{
   cpus 1
-  tag = 'Brainstem - End in CGMSWI Thal IC noCP'
 
   input:
     set sid, file(tractogram) from brainstem_for_corticopontine_parietotemporoccipital
@@ -1035,7 +1005,6 @@ process brainstem_ee_corticopontic_parietotemporooccipital{
 brainstem_for_merge_ee_pons_no_ee_parietooccipital_01.join(brainstem_for_merge_ee_pons_no_ee_parietooccipital_02).set{brainstem_for_merge_ee_pons_no_ee_parietooccipital}
 process brainstem_ee_merge_no_ee_pons_no_ee_parieto_temporo_occipital_split_fronto_parietal {
  cpus 1
- tag = 'Brainstem - Either End - '
 
  input:
   set sid, file(trk01), file(trk02) from brainstem_for_merge_ee_pons_no_ee_parietooccipital
@@ -1056,8 +1025,6 @@ process brainstem_ee_merge_no_ee_pons_no_ee_parieto_temporo_occipital_split_fron
 
 process brainstem_ee_pyramidal{
   cpus 1
-
-  tag = 'Brainstem - End in FrontoParietal'
 
   input:
     set sid, file(tractogram) from brainstem_for_pyramidal
@@ -1082,7 +1049,6 @@ process brainstem_ee_pyramidal{
 brainstem_for_corticotectal_01.join(brainstem_for_corticotectal_02).set{brainstem_for_corticotectal}
 process brainstem_ee_corticotectal{
   cpus 1
-  tag = 'Brainstem - Corticotectal'
 
   input:
     set sid, file(trk01), file(trk02) from brainstem_for_corticotectal
@@ -1101,9 +1067,12 @@ process brainstem_ee_corticotectal{
 }
 
 brainstem_ee_all_thalamus_for_plausible.join(brainstem_ee_red_nucleus_for_plausible).join(brainstem_ee_3rd_order_PoC_for_plausible).join(brainstem_corticopontine_frontal_for_plausible).join(brainstem_pyramidal_for_merge).join(brainstem_ee_corticopontine_parietotemporooccipital_for_plausible).join(brainstem_corticotectal_for_plausible).set{brainstem_ee_merge_plausible}
+
+/*
+Brainstem - Either End - Concatenating plausible streamlines Brainstem
+*/
 process brainstem_ee_merge_plausible{
   cpus 1
-  tag = "Brainstem - Either End - Concatenating plausible streamlines Brainstem"
 
   input:
   set sid, file(trk01), file(trk02), file(trk03), file(trk04), file(trk05), file(trk06), file(trk07) from brainstem_ee_merge_plausible
@@ -1136,13 +1105,12 @@ process brainstem_ee_merge_plausible{
 brainstem_merge_plausible_01.join(brainstem_merge_plausible_02).set{brainstem_merge_plausible}
 process brainstem_merge_plausible{
   cpus 1
-  tag = "Brainstem - Concatenating plausible streamlines"
 
   input:
   set sid, file(trk01), file(trk02) from brainstem_merge_plausible
 
   output:
-  set sid, "${sid}__brainstem_plausible_tracks.trk"
+  set sid, "${sid}__brainstem_plausible_tracks.trk" into brainstem_for_trk_plausible
   file "${sid}__brainstem_plausible_tracks.txt" optional true
 
   script:
@@ -1161,9 +1129,12 @@ process brainstem_merge_plausible{
   END Brainstem
 */
 
-process Remove_out_of_CGM_DWM {
+/*
+Brain - Either end in CGM SWM
+*/
+
+process remove_out_of_CGM_DWM {
   cpus 1
-  tag = "Brain - Either end in CGM SWM"
 
   input:
     set sid, file(tractogram) from wb_for_split_end_in_CGMSWI
@@ -1185,9 +1156,8 @@ process Remove_out_of_CGM_DWM {
     template "filter_with_atlas.sh"
 }
 
-process Extracting_all_commissural {
+process extract_all_commissural {
   cpus 1
-  tag = "Extract all commissural"
 
   input:
     set sid, file(tractogram) from wb_for_extract_all_commissural
@@ -1209,9 +1179,8 @@ process Extracting_all_commissural {
   template "filter_with_atlas.sh"
 }
 
-process Split_CC_BG {
+process split_CC_BG {
   cpus 1
-  tag = "Split Basal Ganglia"
 
   input:
     set sid, file(tractogram) from cc_for_ee_BG
@@ -1232,9 +1201,8 @@ process Split_CC_BG {
   template "filter_with_atlas.sh"
 }
 
-process First_cc_cleaning {
+process first_cc_cleaning {
   cpus 1
-  tag = "First_cc_cleaning"
 
   input:
     set sid, file(tractogram) from cc_for_remove_unplausible
@@ -1244,7 +1212,6 @@ process First_cc_cleaning {
     set sid, "${sid}__CC_lost.trk" optional true
     file "${sid}__CC_Cx.txt" optional true
     file "${sid}__CC_lost.txt" optional true
-
 
   script:
   """
@@ -1265,9 +1232,12 @@ process First_cc_cleaning {
   """
 }
 
+/*
+Split not CC in asso BG and not BG
+*/
+
 process Split_no_CC_Asso_and_BG {
   cpus 1
-  tag = "Split not CC in asso BG and not BG"
 
   input:
     set sid, file(tractogram) from no_cc_for_split_asso_BG
@@ -1293,9 +1263,8 @@ bg_list=params.bg_lists?.tokenize(',')
 Channel.from(bg_list).into{bg_thal_list;
                            bg_put_list}
 
-process Split_BG_Thal {
+process split_BG_Thal {
   cpus 1
-  tag = "Split BG Thal"
 
   input:
     set sid, file(tractogram) from asso_BG_for_split_Thal
@@ -1316,13 +1285,14 @@ process Split_BG_Thal {
 
 BG_ipsi_Thal_for_merge.groupTuple().map{it}.set{BG_ipsi_Thal_list_for_merge}
 
-process Merge_BG_Thal{
+process merge_BG_Thal{
   cpus 1
-  tag = "Merge BG Thal"
+
   input:
     set sid, file(tractogram) from BG_ipsi_Thal_list_for_merge
+
   output:
-    set sid, "${sid}__BG_ipsi_Thal_all.trk"
+    set sid, "${sid}__BG_ipsi_Thal_all.trk" into BG_ipsi_Thal_for_trk_plausible
 
   script:
   """
@@ -1330,9 +1300,8 @@ process Merge_BG_Thal{
   """
 }
 
-process Split_BG_Put {
+process split_BG_Put {
   cpus 1
-  tag = "Split BG Put"
 
   input:
     set sid, file(tractogram) from asso_BG_for_split_Put
@@ -1353,13 +1322,14 @@ process Split_BG_Put {
 
 BG_ipsi_Put_for_merge.groupTuple().map{it}.set{BG_ipsi_Put_list_for_merge}
 
-process Merge_BG_Put{
+process merge_BG_Put{
   cpus 1
-  tag = "Merge BG Put"
+
   input:
     set sid, file(tractogram) from BG_ipsi_Put_list_for_merge
+
   output:
-    set sid, "${sid}__BG_ipsi_Put_all.trk"
+    set sid, "${sid}__BG_ipsi_Put_all.trk" into BG_ipsi_Put_for_trk_plausible
 
   script:
   """
@@ -1369,9 +1339,8 @@ process Merge_BG_Put{
 
 bg_caud_list=params.bg_caud_lists?.tokenize(',')
 
-process Split_BG_Caud {
+process split_BG_Caud {
   cpus 1
-  tag = "Split BG Caud"
 
   input:
     set sid, file(tractogram) from asso_BG_for_split_Caud
@@ -1392,14 +1361,14 @@ process Split_BG_Caud {
 
 BG_ipsi_Caud_for_merge.groupTuple().map{it}.set{BG_ipsi_Caud_list_for_merge}
 
-process Merge_BG_Caud{
+process merge_BG_Caud{
   cpus 1
-  tag = "Merge BG Caud"
+
   input:
     set sid, file(tractogram) from BG_ipsi_Caud_list_for_merge
 
   output:
-    set sid, "${sid}__BG_ipsi_Caud_all.trk"
+    set sid, "${sid}__BG_ipsi_Caud_all.trk" into BG_ipsi_Caud_for_trk_plausible
 
   script:
   """
@@ -1407,10 +1376,8 @@ process Merge_BG_Caud{
   """
 }
 
-
-process Split_Asso_In_Hemi {
+process split_asso_in_hemi {
   cpus 1
-  tag = "Split asso in hemispheres"
 
   input:
     set sid, file(tractogram) from asso_noBG_for_split_hemi
@@ -1437,9 +1404,12 @@ process Split_Asso_In_Hemi {
   template "filter_with_atlas.sh"
 }
 
-process Split_UShape_CGM_Asso {
+/*
+Extracting U-shaped and streamlines restricted to Cortical GM and removing them from asso
+*/
+
+process split_ushape_CGM_asso {
   cpus 1
-  tag = "Extracting U-shaped and streamlines restricted to Cortical GM and removing them from asso"
 
   input:
     set sid, val(side), file(tractogram) from asso_for_extract_u_shape
@@ -1447,7 +1417,7 @@ process Split_UShape_CGM_Asso {
   output:
     set sid, val(side), "${sid}__asso_only_in_CGM_${side}.trk" into assoCGM
     set sid, val(side), "${sid}__asso_Ushape_${side}.trk" into assoUShape
-    set sid, val(side), "${sid}__asso_Ushape_${side}_u.trk" into assoUShapef
+    set sid, "${sid}__asso_Ushape_${side}_u.trk" into asso_u_shape_for_trk_plausible
     set sid, val(side), "${sid}__asso_f_${side}.trk" into asso_for_remove_long_range
     file "${sid}__asso_only_in_CGM_${side}.txt" optional true
     file "${sid}__asso_Ushape_${side}.txt" optional true
@@ -1486,9 +1456,12 @@ process Split_UShape_CGM_Asso {
   """
 }
 
+/*
+Extracting unplausible long-range association streamlines passing through subcortical structures (Cd, Put, GP, Thal, Amyg)
+*/
+
 process Remove_Unplausible_Long_Range_Asso {
   cpus 1
-  tag = "Extracting unplausible long-range association streamlines passing through subcortical structures (Cd, Put, GP, Thal, Amyg)"
 
   input:
     set sid, val(side), file(tractogram) from asso_for_remove_long_range
@@ -1547,7 +1520,6 @@ cc_homotopic_pairs=params.cc_homotopic_pairs?.tokenize(',')
 
 process CC_Homotopic {
   cpus 1
-  tag = "CC Homotopic"
 
   input:
     set sid, file(tractogram) from CC_for_homotopic
@@ -1569,13 +1541,12 @@ CC_Homotopic_for_merge.groupTuple().map{it}.set{CC_Homotopic_list_for_merge}
 
 process CC_Homotopic_merge {
   cpus 1
-  tag = "Merge CC Homotopic"
 
 input:
   set sid, file(tractogram) from CC_Homotopic_list_for_merge
 
 output:
-  set sid, "${sid}__CC_homo.trk"
+  set sid, "${sid}__CC_homo.trk" into CC_homo_for_trk_plausible
 
 script:
   """
@@ -1591,7 +1562,6 @@ asso_ventral_f_t_list=params.asso_ventral_f_t_lists?.tokenize(',')
 
 process asso_ventral_f_t {
   cpus 1
-  tag = "Asso Ventral filtering"
 
   input:
     set sid, val(side), file(tractogram) from asso_all_intra_inter_for_ventral_f_t_filtering
@@ -1616,7 +1586,6 @@ asso_all_intra_inter_ventral_f_t_for_merge.groupTuple(by:[0,1]).map{it}.set{asso
 
 process merge_asso_ventral_f_t {
   cpus 1
-  tag = "Merge Asso Ventral F_T"
 
   input:
     set sid, val(side), file(tractogram) from asso_all_intra_inter_ventral_f_t_list_for_merge
@@ -1634,7 +1603,6 @@ asso_ventral_f_o_f_p_lists=params.asso_ventral_f_o_f_p_lists?.tokenize(',')
 
 process asso_ventral_f_o_f_p {
   cpus 1
-  tag = "Asso Ventral filtering"
 
   input:
     set sid, val(side), file(tractogram) from asso_all_intra_inter_for_ventral_f_o_f_p_filtering
@@ -1659,13 +1627,12 @@ asso_all_intra_inter_ventral_all_f_t_for_merge.groupTuple(by:[0,1]).join(asso_al
 
 process merge_asso_ventral {
   cpus 1
-  tag = "Merge Asso Ventral"
 
   input:
     set sid, val(side), file(trk01), file(trk02), file(trk03) from asso_all_intra_inter_ventral_all_for_merge
 
   output:
-    set sid, val(side), "${sid}__asso_all_ventral_f_${side}.trk"
+    set sid, "${sid}__asso_all_ventral_f_${side}.trk" into asso_all_ventral_for_trk_plausible
 
   script:
   """
@@ -1681,7 +1648,6 @@ asso_dorsal_f_p_lists=params.asso_dorsal_f_p_lists?.tokenize(',')
 
 process asso_dorsal_f_p {
   cpus 1
-  tag = "Asso Dorsal F_P filtering"
 
   input:
     set sid, val(side), file(tractogram) from asso_all_intra_inter_for_dorsal_f_p_filtering
@@ -1706,7 +1672,6 @@ asso_all_intra_inter_dorsal_f_p_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_
 
 process merge_asso_dorsal_f_p {
   cpus 1
-  tag = "Merge Asso Dorsal F_P"
 
   input:
     set sid, val(side), file(tractogram) from asso_all_intra_inter_dorsal_f_p_list_for_merge
@@ -1724,7 +1689,6 @@ asso_dorsal_f_o_f_t_list=params.asso_dorsal_f_o_f_t_lists?.tokenize(',')
 
 process asso_dorsal_f_o_f_t {
   cpus 1
-  tag = "Asso Dorsal F_O F_T filtering"
 
   input:
     set sid, val(side), file(tractogram) from asso_all_intra_inter_for_dorsal_f_o_f_t_filtering
@@ -1749,13 +1713,12 @@ asso_all_intra_inter_dorsal_all_f_p_for_merge.groupTuple(by:[0,1]).join(asso_all
 
 process merge_asso_dorsal {
   cpus 1
-  tag = "Merge Asso Dorsal"
 
   input:
     set sid, val(side), file(trk01), file(trk02), file(trk03) from asso_all_intra_inter_dorsal_all_for_merge
 
   output:
-    set sid, val(side), "${sid}__asso_all_dorsal_f_${side}.trk"
+    set sid, "${sid}__asso_all_dorsal_f_${side}.trk" into asso_all_dorsal_for_trk_plausible
 
   script:
   """
@@ -1771,7 +1734,6 @@ asso_p_o_list=params.asso_p_o_lists?.tokenize(',')
 
 process asso_p_o {
   cpus 1
-  tag = "Asso P_O filtering"
 
   input:
     set sid, val(side), file(tractogram) from asso_all_intra_inter_for_p_o_filtering
@@ -1796,13 +1758,12 @@ asso_intra_inter_p_o_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_intra_inter
 
 process merge_p_o {
   cpus 1
-  tag = "Merge Asso P_O"
 
   input:
     set sid, val(side), file(tractogram) from asso_intra_inter_p_o_list_for_merge
 
   output:
-    set sid, val(side), "${sid}__asso_all_P_O_f_${side}.trk"
+    set sid, "${sid}__asso_all_P_O_f_${side}.trk" into all_P_O_for_trk_plausible
 
   script:
   """
@@ -1818,7 +1779,6 @@ asso_p_t_list=params.asso_p_t_lists?.tokenize(',')
 
 process asso_p_t {
   cpus 1
-  tag = "Asso P_T filtering"
 
   input:
     set sid, val(side), file(tractogram) from asso_all_intra_inter_for_p_t_filtering
@@ -1843,13 +1803,12 @@ asso_intra_inter_p_t_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_intra_inter
 
 process merge_p_t {
   cpus 1
-  tag = "Merge Asso P_T"
 
   input:
     set sid, val(side), file(tractogram) from asso_intra_inter_p_t_list_for_merge
 
   output:
-    set sid, val(side), "${sid}__asso_all_P_T_f_${side}.trk"
+    set sid, "${sid}__asso_all_P_T_f_${side}.trk" into all_P_T_for_trk_plausible
 
   script:
   """
@@ -1865,7 +1824,6 @@ asso_o_t_list=params.asso_o_t_lists?.tokenize(',')
 
 process asso_o_t {
   cpus 1
-  tag = "Asso O_T filtering"
 
   input:
     set sid, val(side), file(tractogram) from asso_all_intra_inter_for_o_t_filtering
@@ -1890,13 +1848,12 @@ asso_intra_inter_o_t_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_intra_inter
 
 process merge_o_t {
   cpus 1
-  tag = "Merge Asso O_T"
 
   input:
     set sid, val(side), file(tractogram) from asso_intra_inter_o_t_list_for_merge
 
   output:
-    set sid, val(side), "${sid}__asso_all_O_T_f_${side}.trk"
+    set sid, "${sid}__asso_all_O_T_f_${side}.trk" into all_O_T_for_trk_plausible
 
   script:
   """
@@ -1912,7 +1869,6 @@ asso_ins_list=params.asso_ins_lists?.tokenize(',')
 
 process asso_ins {
   cpus 1
-  tag = "Asso Ins filtering"
 
   input:
     set sid, val(side), file(tractogram) from asso_all_intra_inter_for_ins_filtering
@@ -1937,13 +1893,12 @@ asso_intra_inter_ins_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_intra_inter
 
 process merge_ins {
   cpus 1
-  tag = "Merge Asso Ins"
 
   input:
     set sid, val(side), file(tractogram) from asso_intra_inter_ins_list_for_merge
 
   output:
-    set sid, val(side), "${sid}__asso_all_Ins_f_${side}.trk"
+    set sid, "${sid}__asso_all_Ins_f_${side}.trk" into Ins_for_trk_plausible
 
   script:
   """
@@ -1957,13 +1912,12 @@ process merge_ins {
 
 process asso_Cing {
   cpus 1
-  tag = "Asso Cing filtering"
 
   input:
     set sid, val(side), file(tractogram) from asso_all_intra_inter_for_cing_filtering
 
   output:
-    set sid, val(side), "${sid}__asso_all_Cing_${side}.trk"
+    set sid, "${sid}__asso_all_Cing_${side}.trk" into Cing_for_trk_plausible
     set sid, "${sid}__asso_lost_Cing_${side}.trk"
     file "${sid}__asso_all_Cing_${side}.txt" optional true
     file "${sid}__asso_lost_Cing_${side}.txt" optional true
@@ -1984,7 +1938,6 @@ process asso_Cing {
 asso_frontal_be_list=params.asso_frontal_be_lists?.tokenize(',')
 process asso_be_frontal_gyrus {
   cpus 1
-  tag = "Extract be frontal gyrus"
 
   input:
     set sid, val(side), file(tractogram) from asso_all_intra_inter_for_be_frontal_filtering
@@ -2003,17 +1956,16 @@ process asso_be_frontal_gyrus {
 asso_frontal_be_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_frontal_be_list_for_merge}
 process merge_asso_be_frontal_gyrus{
   cpus 1
-  tag = "Merge asso be frontal gyrus"
 
   input:
     set sid, val(side),  val(gyrus), file(tractogram) from asso_frontal_be_list_for_merge
 
   output:
-    set sid, val(side), "${sid}_asso_all_intraF_f_${side}_u.trk"
+    set sid, "${sid}_asso_all_intraF_be_f_${side}_u.trk" into asso_all_intraF_be_for_trk_plausible
 
   script:
   """
-    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraF_f_${side}_u.trk -f
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraF_be_f_${side}_u.trk -f
   """
 }
 
@@ -2025,7 +1977,6 @@ asso_frontal_ee_list = Channel.from(['SFG_MFG', 70],['SFG_IFG', 70], ['SFG_PrCG'
 asso_all_intra_inter_for_ee_frontal_filtering.combine(asso_frontal_ee_list).set{asso_frontal_ee_for_extract}
 process asso_ee_frontal_gyrus {
   cpus 1
-  tag = "Extract be frontal gyrus"
 
   input:
     set sid, val(side), file(tractogram), val(gyrus), val(max_length) from asso_frontal_ee_for_extract
@@ -2044,17 +1995,16 @@ process asso_ee_frontal_gyrus {
 asso_frontal_ee_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_frontal_ee_list_for_merge}
 process merge_asso_ee_frontal_gyrus{
   cpus 1
-  tag = "Merge asso ee frontal gyrus"
 
   input:
     set sid, val(side),  val(gyrus), file(tractogram) from asso_frontal_ee_list_for_merge
 
   output:
-    set sid, val(side), "${sid}_asso_all_intraF_f_${side}_u.trk"
+    set sid, "${sid}_asso_all_intraF_ee_f_${side}_u.trk" into asso_all_intraF_ee_for_trk_plausible
 
   script:
   """
-    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraF_f_${side}_u.trk -f
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraF_ee_f_${side}_u.trk -f
   """
 }
 
@@ -2065,7 +2015,6 @@ process merge_asso_ee_frontal_gyrus{
 asso_occipital_be_list=params.asso_occipital_be_lists?.tokenize(',')
 process asso_be_occipital_gyrus {
   cpus 1
-  tag = "Extract be occipital gyrus"
 
   input:
     set sid, val(side), file(tractogram) from asso_all_intra_inter_for_be_occipital_filtering
@@ -2084,17 +2033,16 @@ process asso_be_occipital_gyrus {
 asso_occipital_be_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_occipital_be_list_for_merge}
 process merge_asso_be_occipital_gyrus{
   cpus 1
-  tag = "Merge asso be occipital gyrus"
 
   input:
     set sid, val(side),  val(gyrus), file(tractogram) from asso_occipital_be_list_for_merge
 
   output:
-    set sid, val(side), "${sid}_asso_all_intraO_f_${side}_u.trk"
+    set sid, "${sid}_asso_all_intraO_be_f_${side}_u.trk" into asso_all_intraO_be_for_trk_plausible
 
   script:
   """
-    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraO_f_${side}_u.trk -f
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraO_be_f_${side}_u.trk -f
   """
 }
 
@@ -2106,7 +2054,6 @@ asso_occipital_ee_list = Channel.from(['MOG_SOG', 60],['MOG_IOG', 50], ['MOG_CuG
 asso_all_intra_inter_for_ee_occipital_filtering.combine(asso_occipital_ee_list).set{asso_occipital_ee_for_extract}
 process asso_ee_occipital_gyrus {
   cpus 1
-  tag = "Extract be occipital gyrus"
 
   input:
     set sid, val(side), file(tractogram), val(gyrus), val(max_length) from asso_occipital_ee_for_extract
@@ -2125,17 +2072,16 @@ process asso_ee_occipital_gyrus {
 asso_occipital_ee_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_occipital_ee_list_for_merge}
 process merge_asso_ee_occipital_gyrus{
   cpus 1
-  tag = "Merge asso ee occipital gyrus"
 
   input:
     set sid, val(side),  val(gyrus), file(tractogram) from asso_occipital_ee_list_for_merge
 
   output:
-    set sid, val(side), "${sid}_asso_all_intraO_f_${side}_u.trk"
+    set sid, "${sid}_asso_all_intraO_ee_f_${side}_u.trk" into asso_all_intraO_ee_for_trk_plausible
 
   script:
   """
-    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraO_f_${side}_u.trk -f
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraO_ee_f_${side}_u.trk -f
   """
 }
 
@@ -2146,7 +2092,6 @@ process merge_asso_ee_occipital_gyrus{
 asso_parietal_be_list=params.asso_parietal_be_lists?.tokenize(',')
 process asso_be_parietal_gyrus {
   cpus 1
-  tag = "Extract be occipital gyrus"
 
   input:
     set sid, val(side), file(tractogram) from asso_all_intra_inter_for_be_parietal_filtering
@@ -2165,17 +2110,16 @@ process asso_be_parietal_gyrus {
 asso_parietal_be_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_parietal_be_list_for_merge}
 process merge_asso_be_parietal_gyrus{
   cpus 1
-  tag = "Merge asso be parietal gyrus"
 
   input:
     set sid, val(side),  val(gyrus), file(tractogram) from asso_parietal_be_list_for_merge
 
   output:
-    set sid, val(side), "${sid}_asso_all_intraP_f_${side}_u.trk"
+    set sid, "${sid}_asso_all_intraP_be_f_${side}_u.trk" into asso_all_intraP_be_for_trk_plausible
 
   script:
   """
-    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraP_f_${side}_u.trk -f
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraP_be_f_${side}_u.trk -f
   """
 }
 
@@ -2187,7 +2131,6 @@ asso_parietal_ee_list = Channel.from(['SPG_PoCG', 50], ['SPG_AG', 80], ['SPG_SMG
 asso_all_intra_inter_for_ee_parietal_filtering.combine(asso_parietal_ee_list).set{asso_parietal_ee_for_extract}
 process asso_ee_parietal_gyrus {
   cpus 1
-  tag = "Extract be parietal gyrus"
 
   input:
     set sid, val(side), file(tractogram), val(gyrus), val(max_length) from asso_parietal_ee_for_extract
@@ -2206,17 +2149,16 @@ process asso_ee_parietal_gyrus {
 asso_parietal_ee_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_parietal_ee_list_for_merge}
 process merge_asso_ee_parietal_gyrus{
   cpus 1
-  tag = "Merge asso ee parietal gyrus"
 
   input:
     set sid, val(side),  val(gyrus), file(tractogram) from asso_parietal_ee_list_for_merge
 
   output:
-    set sid, val(side), "${sid}_asso_all_intraP_f_${side}.trk"
+    set sid, "${sid}_asso_all_intraP_ee_f_${side}.trk" into asso_all_intraP_ee_for_trk_plausible
 
   script:
   """
-    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraP_f_${side}.trk -f
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraP_ee_f_${side}.trk -f
   """
 }
 
@@ -2227,7 +2169,6 @@ process merge_asso_ee_parietal_gyrus{
 asso_temporal_be_list=params.asso_temporal_be_lists?.tokenize(',')
 process asso_be_temporal_gyrus {
   cpus 1
-  tag = "Extract be temporal gyrus"
 
   input:
     set sid, val(side), file(tractogram) from asso_all_intra_inter_for_be_temporal_filtering
@@ -2246,17 +2187,16 @@ process asso_be_temporal_gyrus {
 asso_temporal_be_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_temporal_be_list_for_merge}
 process merge_asso_be_temporal_gyrus{
   cpus 1
-  tag = "Merge asso be temporal gyrus"
 
   input:
     set sid, val(side),  val(gyrus), file(tractogram) from asso_temporal_be_list_for_merge
 
   output:
-    set sid, val(side), "${sid}_asso_all_intraT_f_${side}_u.trk"
+    set sid, "${sid}_asso_all_intraT_be_f_${side}_u.trk" into asso_all_intraT_be_for_trk_plausible
 
   script:
   """
-    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraT_f_${side}_u.trk -f
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraT_be_f_${side}_u.trk -f
   """
 }
 
@@ -2268,7 +2208,6 @@ asso_temporal_ee_list = Channel.from(['STG_MTG', 60], ['STG_ITG',80], ['STG_Tpol
 asso_all_intra_inter_for_ee_temporal_filtering.combine(asso_temporal_ee_list).set{asso_temporal_ee_for_extract}
 process asso_ee_temporal_gyrus {
   cpus 1
-  tag = "Extract be temporal gyrus"
 
   input:
     set sid, val(side), file(tractogram), val(gyrus), val(max_length) from asso_temporal_ee_for_extract
@@ -2287,16 +2226,49 @@ process asso_ee_temporal_gyrus {
 asso_temporal_ee_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_temporal_ee_list_for_merge}
 process merge_asso_ee_temporal_gyrus{
   cpus 1
-  tag = "Merge asso ee temporal gyrus"
 
   input:
     set sid, val(side),  val(gyrus), file(tractogram) from asso_temporal_ee_list_for_merge
 
   output:
-    set sid, val(side), "${sid}_asso_all_intraT_f_${side}.trk"
+    set sid, "${sid}_asso_all_intraT_ee_f_${side}.trk" into asso_all_intraT_ee_for_trk_plausible
 
   script:
   """
-    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraT_f_${side}.trk -f
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}_asso_all_intraT_ee_f_${side}.trk -f
+  """
+}
+
+fornix_for_trk_plausible.join(cerebellum_for_trk_plausible).join(brainstem_for_trk_plausible).join(BG_ipsi_Thal_for_trk_plausible).join(BG_ipsi_Put_for_trk_plausible).join(BG_ipsi_Caud_for_trk_plausible).join(asso_u_shape_for_trk_plausible).join(CC_homo_for_trk_plausible).join(asso_all_dorsal_for_trk_plausible).join(asso_all_ventral_for_trk_plausible).join(all_P_O_for_trk_plausible).join(all_P_T_for_trk_plausible).join(all_O_T_for_trk_plausible).join(Ins_for_trk_plausible).join(Cing_for_trk_plausible).join(asso_all_intraF_be_for_trk_plausible).join(asso_all_intraF_ee_for_trk_plausible).join(asso_all_intraP_ee_for_trk_plausible).join(asso_all_intraP_ee_for_trk_plausible).join(asso_all_intraO_ee_for_trk_plausible).join(asso_all_intraO_ee_for_trk_plausible).join(asso_all_intraT_be_for_trk_plausible).join(asso_all_intraT_ee_for_trk_plausible).set{merge_trk_plausible}
+
+process merge_trk_plausible{
+  cpus 1
+
+  input:
+    set sid, file(tractogram) from merge_trk_plausible
+
+  output:
+    set sid, "${sid}__plausible.trk" into plausible_for_extract_unplausible
+
+  script:
+  """
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__plausible.trk -f
+  """
+}
+
+in_tractogram_for_extract_unplausible.join(plausible_for_extract_unplausible).set{for_trk_unplausible}
+
+process extract_trk_unplausible{
+  cpus 1
+  tag="Extract unplausible"
+
+  input:
+    set sid, file(trk01), file(trk02) from for_trk_unplausible
+  output:
+    set sid, "${sid}__unplausible.trk"
+
+  script:
+  """
+    scil_streamlines_math.py difference ${trk01} ${trk02} ${sid}__unplausible.trk -f
   """
 }
