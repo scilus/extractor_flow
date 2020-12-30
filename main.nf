@@ -183,12 +183,12 @@ process extract_fornix{
     set sid, file(tractogram) from unplausible_for_fornix
 
   output:
-    set sid, "${sid}__fornix.trk" into fornix_for_trk_plausible
-    file "${sid}__fornix.txt"
+    set sid, "${sid}__fornix_f.trk" into fornix_for_trk_plausible, fornix_for_rename
+    file "${sid}__fornix_f.txt"
 
   script:
     filtering_list=params.filtering_lists_folder+"fornix_filtering_list.txt"
-    out_extension="fornix"
+    out_extension="fornix_f"
     remaining_extension="unplausible_wo_fornix"
     basename="${sid}"
 
@@ -935,7 +935,7 @@ process brainstem_ee_corticopontic_frontal{
     set sid, file(tractogram) from brainstem_for_corticopontine_frontal
 
   output:
-    set sid, "${sid}__all_brainstem_corticopontine_frontal.trk" into brainstem_corticopontine_frontal_for_plausible
+    set sid, "${sid}__all_brainstem_corticopontine_frontal.trk" into brainstem_corticopontine_frontal_for_plausible, brainstem_corticopontine_frontal_for_rename
     set sid, "${sid}__all_brainstem_ee_tmp_CGM_SWM_tmp_noThal_ee_Pons_no_ee_frontal.trk" into brainstem_for_merge_not_ee_frontal_not_ee_pons_01
 
   script:
@@ -988,7 +988,7 @@ process brainstem_ee_corticopontic_parietotemporooccipital{
     set sid, file(tractogram) from brainstem_for_corticopontine_parietotemporoccipital
 
   output:
-    set sid, "${sid}__all_brainstem_corticopontine_parietotemporooccipital.trk" into brainstem_ee_corticopontine_parietotemporooccipital_for_plausible
+    set sid, "${sid}__all_brainstem_corticopontine_parietotemporooccipital.trk" into brainstem_ee_corticopontine_parietotemporooccipital_for_plausible, brainstem_ee_corticopontine_parietotemporooccipital_for_rename
     set sid, "${sid}__all_brainstem_not_ee_parieto_occipital.trk" into brainstem_for_merge_ee_pons_no_ee_parietooccipital_02
 
   script:
@@ -1030,7 +1030,7 @@ process brainstem_ee_pyramidal{
     set sid, file(tractogram) from brainstem_for_pyramidal
 
   output:
-    set sid, "${sid}__all_brainstem_pyramidal.trk" into brainstem_pyramidal_for_merge
+    set sid, "${sid}__all_brainstem_pyramidal.trk" into brainstem_pyramidal_for_merge, brainstem_pyramidal_for_rename
     set sid, "${sid}__all_brainstem_not_ee_medulla.trk" into brainstem_for_corticotectal_02
 
   script:
@@ -1262,7 +1262,9 @@ process Split_no_CC_Asso_and_BG {
 bg_list=params.bg_lists?.tokenize(',')
 Channel.from(bg_list).into{bg_thal_list;
                            bg_put_list}
-
+/*
+BG THAL
+*/
 process split_BG_Thal {
   cpus 1
 
@@ -1273,6 +1275,8 @@ process split_BG_Thal {
 
   output:
     set sid, "${sid}__BG_ipsi_Thal_${list}_${side}.trk" into BG_ipsi_Thal_for_merge
+    set sid, val(side), "${sid}__BG_ipsi_Thal_${list}_${side}.trk" into BG_ipsi_Thal_split_for_merge
+    set sid, val(side), val(list), "${sid}__BG_ipsi_Thal_${list}_${side}.trk" into BG_ipsi_Thal_for_filter_CuGWM, BG_ipsi_Thal_for_filter_LGWM
 
   script:
     filtering_list=params.filtering_lists_folder+"BG_ipsi_Thal_${list}_${side}_f.txt"
@@ -1282,6 +1286,12 @@ process split_BG_Thal {
 
     template "filter_with_list.sh"
 }
+
+BG_ipsi_Thal_split_for_merge.groupTuple(by:[0,1]).set{BG_ipsi_Thal_for_rename}
+
+BG_ipsi_Thal_for_filter_CuGWM.filter{it[2]=='CuGWM'}.set{CuGWM_for_combine}
+BG_ipsi_Thal_for_filter_LGWM.filter{it[2]=='LGWM'}.set{LGWM_for_combine}
+CuGWM_for_combine.concat(LGWM_for_combine).groupTuple(by:[0,1]).set{optic_radiation_for_rename}
 
 BG_ipsi_Thal_for_merge.groupTuple().map{it}.set{BG_ipsi_Thal_list_for_merge}
 
@@ -1300,6 +1310,9 @@ process merge_BG_Thal{
   """
 }
 
+/*
+BG PUT
+*/
 process split_BG_Put {
   cpus 1
 
@@ -1310,6 +1323,7 @@ process split_BG_Put {
 
   output:
     set sid, "${sid}__BG_ipsi_Put_${list}_${side}.trk" into BG_ipsi_Put_for_merge
+    set sid, val(side), "${sid}__BG_ipsi_Put_${list}_${side}.trk" into BG_ipsi_Put_for_rename
 
   script:
     filtering_list=params.filtering_lists_folder+"BG_ipsi_Put_${list}_${side}_f.txt"
@@ -1337,8 +1351,10 @@ process merge_BG_Put{
   """
 }
 
+/*
+BG CAUD
+*/
 bg_caud_list=params.bg_caud_lists?.tokenize(',')
-
 process split_BG_Caud {
   cpus 1
 
@@ -1349,6 +1365,7 @@ process split_BG_Caud {
 
   output:
     set sid, "${sid}__BG_ipsi_Caud_${list}_${side}.trk" into BG_ipsi_Caud_for_merge
+    set sid, val(side), "${sid}__BG_ipsi_Caud_${list}_${side}.trk" into BG_ipsi_Caud_for_rename
 
   script:
     filtering_list=params.filtering_lists_folder+"BG_ipsi_Caud_${list}_${side}_f.txt"
@@ -1418,6 +1435,8 @@ process split_ushape_CGM_asso {
     set sid, val(side), "${sid}__asso_only_in_CGM_${side}.trk" into assoCGM
     set sid, val(side), "${sid}__asso_Ushape_${side}.trk" into assoUShape
     set sid, "${sid}__asso_Ushape_${side}_u.trk" into asso_u_shape_for_trk_plausible
+    set sid, val(side), "${sid}__asso_Ushape_${side}_u.trk" into asso_u_shape_for_rename
+
     set sid, val(side), "${sid}__asso_f_${side}.trk" into asso_for_remove_long_range
     file "${sid}__asso_only_in_CGM_${side}.txt" optional true
     file "${sid}__asso_Ushape_${side}.txt" optional true
@@ -1483,8 +1502,10 @@ process Remove_Unplausible_Long_Range_Asso {
   template "filter_with_atlas.sh"
 }
 
+/*
 inCCBG.groupTuple().map{it.flatten().toList()}.set{inCCBG_List}
 assoUShape.groupTuple().map{it.flatten().toList()}.set{assoUShape_list}
+*/
 
 asso_all_intra_inter.into{asso_all_intra_inter_for_ventral_f_o_f_p_filtering;
                           asso_all_intra_inter_for_ventral_f_t_filtering;
@@ -1527,16 +1548,67 @@ process CC_Homotopic {
 
   output:
     set sid, "${sid}__cc_homotopic_${pair}.trk" into CC_Homotopic_for_merge
+    set sid, val(pair), "${sid}__cc_homotopic_${pair}.trk" into CC_Homotopic_for_filter_AGWM, CC_Homotopic_for_filter_CingGWM, CC_Homotopic_for_filter_CuGWM, CC_Homotopic_for_filter_FuGWM, CC_Homotopic_for_filter_Hippo, CC_Homotopic_for_filter_IFGWM, CC_Homotopic_for_filter_Ins, CC_Homotopic_for_filter_IOGWM, CC_Homotopic_for_filter_ITGWM, CC_Homotopic_for_filter_LFOGWM, CC_Homotopic_for_filter_LGWM, CC_Homotopic_for_filter_MFGWM, CC_Homotopic_for_filter_MFOGWM, CC_Homotopic_for_filter_MOGWM, CC_Homotopic_for_filter_MTGWM, CC_Homotopic_for_filter_PHG, CC_Homotopic_for_filter_PoCGWM, CC_Homotopic_for_filter_PrCGWM, CC_Homotopic_for_filter_PrCuGWM, CC_Homotopic_for_filter_RGGWM, CC_Homotopic_for_filter_SFGWM, CC_Homotopic_for_filter_SMGWM, CC_Homotopic_for_filter_SOGWM, CC_Homotopic_for_filter_SPGWM, CC_Homotopic_for_filter_STGWM, CC_Homotopic_for_filter_T_pole_gwm
 
-    script:
-      filtering_list=params.filtering_lists_folder+"CC_homo_${pair}_filtering_list_f.txt"
-      out_extension="cc_homotopic_${pair}"
-      remaining_extension="garbage_${pair}"
-      basename="${sid}"
+  script:
+    filtering_list=params.filtering_lists_folder+"CC_homo_${pair}_filtering_list_f.txt"
+    out_extension="cc_homotopic_${pair}"
+    remaining_extension="garbage_${pair}"
+    basename="${sid}"
 
-      template "filter_with_list.sh"
+    template "filter_with_list.sh"
 }
 
+/*
+Filter + Concat frontal
+*/
+CC_Homotopic_for_filter_IFGWM.filter{it[1]=='IFGWM'}.set{CC_IFGWM_for_combine_frontal}
+CC_Homotopic_for_filter_SFGWM.filter{it[1]=='SFGWM'}.set{CC_SFGWM_for_combine_frontal}
+CC_Homotopic_for_filter_MFGWM.filter{it[1]=='MFGWM'}.set{CC_MFGWM_for_combine_frontal}
+CC_Homotopic_for_filter_MFOGWM.filter{it[1]=='MFOGWM'}.set{CC_MFOGWM_for_combine_frontal}
+CC_Homotopic_for_filter_LFOGWM.filter{it[1]=='LFOGWM'}.set{CC_LFOGWM_for_combine_frontal}
+CC_Homotopic_for_filter_PrCGWM.filter{it[1]=='PrCGWM'}.set{CC_PrCGWM_for_combine_frontal}
+CC_Homotopic_for_filter_RGGWM.filter{it[1]=='RGGWM'}.set{CC_RGGWM_for_combine_frontal}
+
+CC_IFGWM_for_combine_frontal.concat(CC_SFGWM_for_combine_frontal).concat(CC_MFGWM_for_combine_frontal).concat(CC_MFOGWM_for_combine_frontal).concat(CC_LFOGWM_for_combine_frontal).concat(CC_PrCGWM_for_combine_frontal).concat(CC_RGGWM_for_combine_frontal).groupTuple(by:0).set{CC_Homotopic_frontal_for_rename}
+
+/*
+Filter + Concat occipital
+*/
+CC_Homotopic_for_filter_SOGWM.filter{it[1]=='SOGWM'}.set{CC_SOGWM_for_combine_occipital}
+CC_Homotopic_for_filter_MOGWM.filter{it[1]=='MOGWM'}.set{CC_MOGWM_for_combine_occipital}
+CC_Homotopic_for_filter_IOGWM.filter{it[1]=='IOGWM'}.set{CC_IOGWM_for_combine_occipital}
+CC_Homotopic_for_filter_CuGWM.filter{it[1]=='CuGWM'}.set{CC_CuGWM_for_combine_occipital}
+CC_Homotopic_for_filter_LGWM.filter{it[1]=='LGWM'}.set{CC_LGWM_for_combine_occipital}
+
+CC_SOGWM_for_combine_occipital.concat(CC_MOGWM_for_combine_occipital).concat(CC_IOGWM_for_combine_occipital).concat(CC_CuGWM_for_combine_occipital).concat(CC_LGWM_for_combine_occipital).groupTuple(by:0).set{CC_Homotopic_occipital_for_rename}
+
+/*
+Filter + Concat temporal
+*/
+CC_Homotopic_for_filter_STGWM.filter{it[1]=='STGWM'}.set{CC_STGWM_for_combine_temporal}
+CC_Homotopic_for_filter_T_pole_gwm.filter{it[1]=='T_pole_gwm'}.set{CC_T_pole_gwm_for_combine_temporal}
+CC_Homotopic_for_filter_MTGWM.filter{it[1]=='MTGWM'}.set{CC_MTGWM_for_combine_temporal}
+CC_Homotopic_for_filter_ITGWM.filter{it[1]=='ITGWM'}.set{CC_ITGWM_for_combine_temporal}
+CC_Homotopic_for_filter_PHG.filter{it[1]=='PHG'}.set{CC_PHG_for_combine_temporal}
+CC_Homotopic_for_filter_Hippo.filter{it[1]=='Hippo'}.set{CC_Hippo_for_combine_temporal}
+
+CC_STGWM_for_combine_temporal.concat(CC_T_pole_gwm_for_combine_temporal).concat(CC_MTGWM_for_combine_temporal).concat(CC_ITGWM_for_combine_temporal).concat(CC_PHG_for_combine_temporal).concat(CC_Hippo_for_combine_temporal).groupTuple(by:0).set{CC_Homotopic_temporal_for_rename}
+
+/*
+Filter + Concat parietal
+*/
+CC_Homotopic_for_filter_SPGWM.filter{it[1]=='SPGWM'}.set{CC_SPGWM_for_combine_parietal}
+CC_Homotopic_for_filter_SMGWM.filter{it[1]=='SMGWM'}.set{CC_SMGWM_for_combine_parietal}
+CC_Homotopic_for_filter_PrCuGWM.filter{it[1]=='PrCuGWM'}.set{CC_PrCuGWM_for_combine_parietal}
+CC_Homotopic_for_filter_PoCGWM.filter{it[1]=='PoCGWM'}.set{CC_PoCGWM_for_combine_parietal}
+CC_Homotopic_for_filter_AGWM.filter{it[1]=='AGWM'}.set{CC_AGWM_for_combine_parietal}
+
+CC_SPGWM_for_combine_parietal.concat(CC_SMGWM_for_combine_parietal).concat(CC_PrCuGWM_for_combine_parietal).concat(CC_PoCGWM_for_combine_parietal).concat(CC_AGWM_for_combine_parietal).groupTuple(by:0).set{CC_Homotopic_parietal_for_rename}
+
+/*
+MERGE CC_Homotopic
+*/
 CC_Homotopic_for_merge.groupTuple().map{it}.set{CC_Homotopic_list_for_merge}
 
 process CC_Homotopic_merge {
@@ -1546,7 +1618,7 @@ input:
   set sid, file(tractogram) from CC_Homotopic_list_for_merge
 
 output:
-  set sid, "${sid}__CC_homo.trk" into CC_homo_for_trk_plausible
+  set sid, "${sid}__CC_homo.trk" into CC_homo_for_trk_plausible, CC_homo_for_renaming
 
 script:
   """
@@ -1633,10 +1705,30 @@ process merge_asso_ventral {
 
   output:
     set sid, "${sid}__asso_all_ventral_f_${side}.trk" into asso_all_ventral_for_trk_plausible
-
+    set sid, val(side), "${sid}__asso_all_ventral_f_${side}.trk" into asso_all_ventral_for_split_ifof_uf
   script:
   """
   scil_streamlines_math.py concatenate ${trk01} ${trk02} ${trk03} ${sid}__asso_all_ventral_f_${side}.trk -f
+  """
+}
+
+process split_asso_ventral_ifof_uf {
+  cpus 1
+
+  input:
+    set sid, val(side), file(tractogram) from asso_all_ventral_for_split_ifof_uf
+
+  output:
+    set sid, val(side), "${sid}__asso_IFOF_f_${side}.trk" into asso_IFOF_for_rename
+    set sid, val(side), "${sid}__asso_UF_f_${side}.trk" into asso_UF_for_rename
+
+  script:
+  """
+  scil_filter_tractogram.py ${tractogram} ${sid}__asso_IFOF_f_${side}.trk  \
+                            --drawn_roi ${params.rois_folder}${params.atlas.unc_no_ifof}${side}.nii.gz any include -f
+
+  scil_filter_tractogram.py ${tractogram} ${sid}__asso_UF_f_${side}.trk \
+                            --drawn_roi ${params.rois_folder}${params.atlas.unc_no_ifof}${side}.nii.gz any exclude -f
   """
 }
 
@@ -1655,6 +1747,7 @@ process asso_dorsal_f_p {
 
   output:
     set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_all_intra_inter_dorsal_f_p_for_merge
+    set sid, val(side), val(asso_list), "${sid}__asso_${asso_list}_${side}.trk" into asso_all_intra_inter_dorsal_f_p_for_rename
     set sid, "${sid}__asso_lost_${asso_list}_${side}.trk"
     file "${sid}__asso_${asso_list}_${side}.txt" optional true
     file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
@@ -1696,6 +1789,7 @@ process asso_dorsal_f_o_f_t {
 
   output:
     set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_all_intra_inter_dorsal_all_f_o_f_t_for_merge
+    set sid, val(side), val(asso_list), "${sid}__asso_${asso_list}_${side}.trk" into asso_all_intra_inter_dorsal_all_f_T_for_filter, asso_all_intra_inter_dorsal_all_f_O_for_filter
     set sid, "${sid}__asso_lost_${asso_list}_${side}.trk"
     file "${sid}__asso_${asso_list}_${side}.txt" optional true
     file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
@@ -1708,6 +1802,9 @@ process asso_dorsal_f_o_f_t {
 
     template "filter_with_list.sh"
 }
+
+asso_all_intra_inter_dorsal_all_f_T_for_filter.filter{it[2]=='T_dorsal_f'}.set{asso_all_intra_inter_dorsal_all_f_T_for_rename}
+asso_all_intra_inter_dorsal_all_f_O_for_filter.filter{it[2]=='O_dorsal_f'}.set{asso_all_intra_inter_dorsal_all_f_O_for_rename}
 
 asso_all_intra_inter_dorsal_all_f_p_for_merge.groupTuple(by:[0,1]).join(asso_all_intra_inter_dorsal_all_f_o_f_t_for_merge.groupTuple(by:[0,1]), by:[0,1]).map{it.flatten().toList()}.set{asso_all_intra_inter_dorsal_all_for_merge}
 
@@ -1854,6 +1951,7 @@ process merge_o_t {
 
   output:
     set sid, "${sid}__asso_all_O_T_f_${side}.trk" into all_O_T_for_trk_plausible
+    set sid, val(side), "${sid}__asso_all_O_T_f_${side}.trk" into all_O_T_for_rename
 
   script:
   """
@@ -1918,6 +2016,7 @@ process asso_Cing {
 
   output:
     set sid, "${sid}__asso_all_Cing_${side}.trk" into Cing_for_trk_plausible
+    set sid, val(side), "${sid}__asso_all_Cing_${side}.trk" into Cing_for_rename
     set sid, "${sid}__asso_lost_Cing_${side}.trk"
     file "${sid}__asso_all_Cing_${side}.txt" optional true
     file "${sid}__asso_lost_Cing_${side}.txt" optional true
@@ -2239,7 +2338,7 @@ process merge_asso_ee_temporal_gyrus{
   """
 }
 
-fornix_for_trk_plausible.join(cerebellum_for_trk_plausible).join(brainstem_for_trk_plausible).join(BG_ipsi_Thal_for_trk_plausible).join(BG_ipsi_Put_for_trk_plausible).join(BG_ipsi_Caud_for_trk_plausible).join(asso_u_shape_for_trk_plausible).join(CC_homo_for_trk_plausible).join(asso_all_dorsal_for_trk_plausible).join(asso_all_ventral_for_trk_plausible).join(all_P_O_for_trk_plausible).join(all_P_T_for_trk_plausible).join(all_O_T_for_trk_plausible).join(Ins_for_trk_plausible).join(Cing_for_trk_plausible).join(asso_all_intraF_be_for_trk_plausible).join(asso_all_intraF_ee_for_trk_plausible).join(asso_all_intraP_ee_for_trk_plausible).join(asso_all_intraP_ee_for_trk_plausible).join(asso_all_intraO_ee_for_trk_plausible).join(asso_all_intraO_ee_for_trk_plausible).join(asso_all_intraT_be_for_trk_plausible).join(asso_all_intraT_ee_for_trk_plausible).set{merge_trk_plausible}
+fornix_for_trk_plausible.concat(cerebellum_for_trk_plausible,brainstem_for_trk_plausible,BG_ipsi_Thal_for_trk_plausible,BG_ipsi_Put_for_trk_plausible,BG_ipsi_Caud_for_trk_plausible,asso_u_shape_for_trk_plausible,CC_homo_for_trk_plausible,asso_all_dorsal_for_trk_plausible,asso_all_ventral_for_trk_plausible,all_P_O_for_trk_plausible,all_P_T_for_trk_plausible,all_O_T_for_trk_plausible,Ins_for_trk_plausible,Cing_for_trk_plausible,asso_all_intraF_be_for_trk_plausible,asso_all_intraF_ee_for_trk_plausible,asso_all_intraP_be_for_trk_plausible,asso_all_intraP_ee_for_trk_plausible,asso_all_intraO_be_for_trk_plausible,asso_all_intraO_ee_for_trk_plausible,asso_all_intraT_be_for_trk_plausible,asso_all_intraT_ee_for_trk_plausible).groupTuple(by: 0).set{merge_trk_plausible}
 
 process merge_trk_plausible{
   cpus 1
@@ -2260,7 +2359,6 @@ in_tractogram_for_extract_unplausible.join(plausible_for_extract_unplausible).se
 
 process extract_trk_unplausible{
   cpus 1
-  tag="Extract unplausible"
 
   input:
     set sid, file(trk01), file(trk02) from for_trk_unplausible
@@ -2270,5 +2368,286 @@ process extract_trk_unplausible{
   script:
   """
     scil_streamlines_math.py difference ${trk01} ${trk02} ${sid}__unplausible.trk -f
+  """
+}
+
+/*
+RENAME CC CC_Homotopic
+*/
+process rename_cc_homotopic {
+  cpus 1
+
+  input:
+    set sid, val(list), file(trk01) from CC_Homotopic_frontal_for_rename
+    set sid, val(list), file(trk02) from CC_Homotopic_occipital_for_rename
+    set sid, val(list), file(trk03) from CC_Homotopic_temporal_for_rename
+    set sid, val(list), file(trk04) from CC_Homotopic_parietal_for_rename
+
+  output:
+    set sid, "${sid}__cc_homotopic_frontal.trk"
+    set sid, "${sid}__cc_homotopic_occipital.trk"
+    set sid, "${sid}__cc_homotopic_temporal.trk"
+    set sid, "${sid}__cc_homotopic_parietal.trk"
+
+  script:
+  """
+  scil_streamlines_math.py lazy_concatenate ${trk01} "${sid}__cc_homotopic_frontal.trk" -f
+  scil_streamlines_math.py lazy_concatenate ${trk02} "${sid}__cc_homotopic_occipital.trk" -f
+  scil_streamlines_math.py lazy_concatenate ${trk03} "${sid}__cc_homotopic_temporal.trk" -f
+  scil_streamlines_math.py lazy_concatenate ${trk04} "${sid}__cc_homotopic_parietal.trk" -f
+  """
+}
+
+/*
+RENAME CORTICO_STRIATE
+*/
+BG_ipsi_Caud_for_rename.concat(BG_ipsi_Put_for_rename).groupTuple(by:[0,1]).set{cortico_striate_for_rename}
+process rename_cortico_striate {
+  cpus 1
+
+  input:
+    set sid, val(side), file(tractogram) from cortico_striate_for_rename
+
+  output:
+    set sid, "${sid}__corticostriatal_${side}.trk"
+
+  script:
+  """
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__corticostriatal_${side}.trk -f
+  """
+}
+
+/*
+RENAME Corona radiata
+*/
+process rename_coronaradiata {
+  cpus 1
+
+  input:
+    set sid, val(side), file(tractogram) from BG_ipsi_Thal_for_rename
+
+  output:
+    set sid, val(side), "${sid}__coronaradiata_${side}.trk"
+
+  script:
+  """
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__coronaradiata_${side}.trk -f
+  """
+}
+
+/*
+RENAME OPTICAL RADIATION
+*/
+process rename_optical_radiation {
+  cpus 1
+
+  input:
+    set sid, val(side), val(list), file(tractogram) from optic_radiation_for_rename
+
+  output:
+    set sid, "${sid}__optical_radiation_${side}.trk"
+
+  script:
+  """
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__optical_radiation_${side}.trk -f
+  """
+}
+
+/*
+RENAME U SHAPE
+*/
+process rename_ushape {
+  cpus 1
+
+  input:
+    set sid, val(side), file(tractogram) from asso_u_shape_for_rename
+
+  output:
+    set sid, "${sid}__ushape_${side}.trk"
+
+  script:
+  """
+    cp ${tractogram} ${sid}__ushape_${side}.trk
+  """
+}
+
+/*
+RENAME CING
+*/
+process rename_cing {
+  cpus 1
+
+  input:
+    set sid, val(side), file(tractogram) from Cing_for_rename
+
+  output:
+    set sid, "${sid}__cing_${side}.trk"
+
+  script:
+  """
+    cp ${tractogram} ${sid}__cing_${side}.trk
+  """
+}
+
+/*
+RENAME SLF
+*/
+asso_all_intra_inter_dorsal_all_f_O_for_rename.concat(asso_all_intra_inter_dorsal_f_p_for_rename).groupTuple(by:[0,1]).set{slf_for_rename}
+process rename_slf {
+  cpus 1
+
+  input:
+    set sid, val(side), val(list), file(tractogram) from slf_for_rename
+
+  output:
+    set sid, "${sid}__slf_${side}.trk"
+
+  script:
+  """
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__slf_${side}.trk -f
+  """
+}
+
+/*
+RENAME AF
+*/
+process rename_af {
+  cpus 1
+
+  input:
+    set sid, val(side), asso_list, file(tractogram) from asso_all_intra_inter_dorsal_all_f_T_for_rename
+
+  output:
+    set sid, "${sid}__af_${side}.trk"
+
+  script:
+  """
+    cp ${tractogram} ${sid}__af_${side}.trk -f
+  """
+
+}
+
+/*
+RENAME Cortico-pontine_F
+*/
+process rename_corticopontine_F {
+  cpus 1
+
+  input:
+    set sid, file(tractogram) from brainstem_corticopontine_frontal_for_rename
+
+  output:
+    set sid, "${sid}__corticopontine_frontal.trk"
+
+  script:
+  """
+    cp ${tractogram} ${sid}__corticopontine_frontal.trk -f
+  """
+}
+/*
+RENAME cortico-pontine_POT
+*/
+process rename_corticopontine_POT {
+  cpus 1
+
+  input:
+    set sid, file(tractogram) from brainstem_ee_corticopontine_parietotemporooccipital_for_rename
+
+  output:
+    set sid, "${sid}__corticopontine_POT.trk"
+
+  script:
+  """
+    cp ${tractogram} ${sid}__corticopontine_POT.trk -f
+  """
+}
+
+/*
+RENAME Pyramidal tract (CST)
+*/
+process rename_cst {
+  cpus 1
+
+  input:
+    set sid, file(tractogram) from brainstem_pyramidal_for_rename
+
+  output:
+    set sid, "${sid}__cst.trk"
+
+  script:
+  """
+    cp ${tractogram} ${sid}__cst.trk -f
+  """
+}
+
+/*
+RENAME fornix
+*/
+process rename_fornix {
+  cpus 1
+
+  input:
+    set sid, file(tractogram) from fornix_for_rename
+
+  output:
+    set sid, "${sid}__fornix.trk"
+
+  script:
+  """
+    cp ${tractogram} ${sid}__fornix.trk -f
+  """
+}
+
+/*
+RENAME IFOF
+*/
+process rename_ifof {
+  cpus 1
+
+  input:
+    set sid, val(side), file(tractogram) from asso_IFOF_for_rename
+
+  output:
+    set sid, "${sid}__ifof_${side}.trk"
+
+  script:
+  """
+    cp ${tractogram} ${sid}__ifof_${side}.trk -f
+  """
+}
+
+/*
+RENAME UF
+*/
+process rename_uf {
+  cpus 1
+
+  input:
+    set sid, val(side), file(tractogram) from asso_UF_for_rename
+
+  output:
+    set sid, "${sid}__uf_${side}.trk"
+
+  script:
+  """
+    cp ${tractogram} ${sid}__uf_${side}.trk -f
+  """
+}
+
+/*
+RENAME ILF
+*/
+process rename_ilf {
+  cpus 1
+
+  input:
+    set sid, val(side), file(tractogram) from all_O_T_for_rename
+
+  output:
+    set sid, "${sid}__ilf_${side}.trk"
+
+  script:
+  """
+    cp ${tractogram} ${sid}__ilf_${side}.trk -f
   """
 }
