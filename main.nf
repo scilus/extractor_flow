@@ -447,7 +447,7 @@ process cerebellum_merge_plausible{
    set sid, file(trk01), file(trk02), file(trk03), file(trk04), file(trk05) from cerebellum_plausible
 
  output:
-  set sid, "${sid}__cerebellum_plausible.trk" into cerebellum_for_trk_plausible
+  set sid, "${sid}__cerebellum_plausible.trk" into cerebellum_for_trk_plausible, cerebellum_for_rename
   file "${sid}__all_cereb_nocx_out_cereb_in_redN_and_thalamus.txt" optional true
 
  script:
@@ -1110,7 +1110,7 @@ process brainstem_merge_plausible{
   set sid, file(trk01), file(trk02) from brainstem_merge_plausible
 
   output:
-  set sid, "${sid}__brainstem_plausible_tracks.trk" into brainstem_for_trk_plausible
+  set sid, "${sid}__brainstem_plausible_tracks.trk" into brainstem_for_trk_plausible, brainstem_for_rename
   file "${sid}__brainstem_plausible_tracks.txt" optional true
 
   script:
@@ -1592,8 +1592,9 @@ CC_Homotopic_for_filter_MTGWM.filter{it[1]=='MTGWM'}.set{CC_MTGWM_for_combine_te
 CC_Homotopic_for_filter_ITGWM.filter{it[1]=='ITGWM'}.set{CC_ITGWM_for_combine_temporal}
 CC_Homotopic_for_filter_PHG.filter{it[1]=='PHG'}.set{CC_PHG_for_combine_temporal}
 CC_Homotopic_for_filter_Hippo.filter{it[1]=='Hippo'}.set{CC_Hippo_for_combine_temporal}
+CC_Homotopic_for_filter_FuGWM.filter{it[1]=='FuGWM'}.set{CC_FuGWM_for_combine_temporal}
 
-CC_STGWM_for_combine_temporal.concat(CC_T_pole_gwm_for_combine_temporal).concat(CC_MTGWM_for_combine_temporal).concat(CC_ITGWM_for_combine_temporal).concat(CC_PHG_for_combine_temporal).concat(CC_Hippo_for_combine_temporal).groupTuple(by:0).set{CC_Homotopic_temporal_for_rename}
+CC_STGWM_for_combine_temporal.concat(CC_T_pole_gwm_for_combine_temporal).concat(CC_MTGWM_for_combine_temporal).concat(CC_ITGWM_for_combine_temporal).concat(CC_PHG_for_combine_temporal).concat(CC_Hippo_for_combine_temporal).concat(CC_FuGWM_for_combine_temporal).groupTuple(by:0).set{CC_Homotopic_temporal_for_rename}
 
 /*
 Filter + Concat parietal
@@ -1605,6 +1606,19 @@ CC_Homotopic_for_filter_PoCGWM.filter{it[1]=='PoCGWM'}.set{CC_PoCGWM_for_combine
 CC_Homotopic_for_filter_AGWM.filter{it[1]=='AGWM'}.set{CC_AGWM_for_combine_parietal}
 
 CC_SPGWM_for_combine_parietal.concat(CC_SMGWM_for_combine_parietal).concat(CC_PrCuGWM_for_combine_parietal).concat(CC_PoCGWM_for_combine_parietal).concat(CC_AGWM_for_combine_parietal).groupTuple(by:0).set{CC_Homotopic_parietal_for_rename}
+
+
+/*
+Filter CC Cingulum
+*/
+CC_Homotopic_for_filter_CingGWM.filter{it[1]=='CingGWM'}.set{CC_Homotopic_cingulum_for_rename}
+
+/*
+Filter CC Ins
+*/
+CC_Homotopic_for_filter_Ins.filter{it[1]=='Ins'}.set{CC_Homotopic_insular_for_rename}
+
+
 
 /*
 MERGE CC_Homotopic
@@ -2382,12 +2396,15 @@ process rename_cc_homotopic {
     set sid, val(list), file(trk02) from CC_Homotopic_occipital_for_rename
     set sid, val(list), file(trk03) from CC_Homotopic_temporal_for_rename
     set sid, val(list), file(trk04) from CC_Homotopic_parietal_for_rename
-
+    set sid, val(list), file(trk05) from CC_Homotopic_insular_for_rename
+    set sid, val(list), file(trk06) from CC_Homotopic_cingulum_for_rename
   output:
     set sid, "${sid}__cc_homotopic_frontal.trk"
     set sid, "${sid}__cc_homotopic_occipital.trk"
     set sid, "${sid}__cc_homotopic_temporal.trk"
     set sid, "${sid}__cc_homotopic_parietal.trk"
+    set sid, "${sid}__cc_homotopic_insular.trk"
+    set sid, "${sid}__cc_homotopic_cingulum.trk"
 
   script:
   """
@@ -2395,6 +2412,8 @@ process rename_cc_homotopic {
   scil_streamlines_math.py lazy_concatenate ${trk02} "${sid}__cc_homotopic_occipital.trk" -f
   scil_streamlines_math.py lazy_concatenate ${trk03} "${sid}__cc_homotopic_temporal.trk" -f
   scil_streamlines_math.py lazy_concatenate ${trk04} "${sid}__cc_homotopic_parietal.trk" -f
+  cp ${trk05} ${sid}__cc_homotopic_insular.trk -f
+  cp ${trk06} ${sid}__cc_homotopic_cingulum.trk -f
   """
 }
 
@@ -2649,5 +2668,41 @@ process rename_ilf {
   script:
   """
     cp ${tractogram} ${sid}__ilf_${side}.trk -f
+  """
+}
+
+/*
+RENAME BRAINSTEM
+*/
+process rename_brainstem {
+  cpus 1
+
+  input:
+    set sid, file(tractogram) from brainstem_for_rename
+
+  output:
+    set sid, "${sid}__brainstem.trk"
+
+  script:
+  """
+    cp ${tractogram} ${sid}__brainstem.trk -f
+  """
+}
+
+/*
+RENAME CEREBELLUM
+*/
+process rename_cerebellum {
+  cpus 1
+
+  input:
+    set sid, file(tractogram) from cerebellum_for_rename
+
+  output:
+    set sid, "${sid}__cerebellum.trk"
+
+  script:
+  """
+    cp ${tractogram} ${sid}__cerebellum.trk -f
   """
 }
