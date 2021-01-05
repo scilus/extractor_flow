@@ -37,7 +37,10 @@ Channel.from(sides).into{sides_ipsi;
                          sides_split_CC_BG;
                          sides_split_BG_Thal;
                          sides_split_BG_Put;
-                         sides_split_BG_Caud}
+                         sides_split_BG_Caud;
+                         side_corticopontineF;
+                         side_corticopontinePOT;
+                         side_cst}
 
 process Remove_out_not_JHU {
     cpus 1
@@ -1619,7 +1622,6 @@ Filter CC Ins
 CC_Homotopic_for_filter_Ins.filter{it[1]=='Ins'}.set{CC_Homotopic_insular_for_rename}
 
 
-
 /*
 MERGE CC_Homotopic
 */
@@ -2543,7 +2545,6 @@ process rename_af {
   """
     cp ${tractogram} ${sid}__af_${side}.trk -f
   """
-
 }
 
 /*
@@ -2554,13 +2555,13 @@ process rename_corticopontine_F {
 
   input:
     set sid, file(tractogram) from brainstem_corticopontine_frontal_for_rename
-
+    each side from side_corticopontineF
   output:
-    set sid, "${sid}__corticopontine_frontal.trk"
+    set sid, "${sid}__corticopontine_frontal_${side}.trk"
 
   script:
   """
-    cp ${tractogram} ${sid}__corticopontine_frontal.trk -f
+  scil_filter_tractogram.py ${tractogram} ${sid}__corticopontine_frontal_${side}.trk --drawn_roi ${params.rois_folder}${params.atlas.frontal_side}${side}.nii.gz either_end include -f
   """
 }
 /*
@@ -2571,13 +2572,14 @@ process rename_corticopontine_POT {
 
   input:
     set sid, file(tractogram) from brainstem_ee_corticopontine_parietotemporooccipital_for_rename
+    each side from side_corticopontinePOT
 
   output:
-    set sid, "${sid}__corticopontine_POT.trk"
+    set sid, "${sid}__corticopontine_POT_${side}.trk"
 
   script:
   """
-    cp ${tractogram} ${sid}__corticopontine_POT.trk -f
+    scil_filter_tractogram.py ${tractogram} ${sid}__corticopontine_POT_${side}.trk --drawn_roi ${params.rois_folder}${params.atlas.parieto_temporo_occipital_side}${side}.nii.gz either_end include -f
   """
 }
 
@@ -2589,13 +2591,14 @@ process rename_cst {
 
   input:
     set sid, file(tractogram) from brainstem_pyramidal_for_rename
+    each side from side_cst
 
   output:
-    set sid, "${sid}__cst.trk"
+    set sid, "${sid}__cst_${side}.trk"
 
   script:
   """
-    cp ${tractogram} ${sid}__cst.trk -f
+    scil_filter_tractogram.py ${tractogram} ${sid}__cst_${side}.trk --drawn_roi ${params.rois_folder}${params.atlas.fronto_parietal_side}${side}.nii.gz either_end include -f
   """
 }
 
