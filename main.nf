@@ -199,16 +199,43 @@ process extract_fornix{
 }
 
 
-process extract_plausible_cerebellum {
+process extract_ee_cerebellum {
   cpus 1
 
   input:
     set sid, file(tractogram) from wb_for_extract_end_in_cerebellum
 
   output:
+    set sid, "${sid}__wb_clean01_nocereb.trk" into wb_for_extract_end_in_brainstem
+    set sid, "${sid}__all_cerebellum.trk" into ee_cerebellum_for_extract_plausible
+    file "${sid}__all_cerebellum.txt" optional true
+    file "${sid}__wb_clean01_nocereb.txt" optional true
+
+  script:
+  atlas=params.rois_folder+params.atlas.cerebellum
+  mode=params.mode.either_end
+  criteria=params.criteria.exclude
+  out_extension='wb_clean01_nocereb'
+  remaining_extension='all_cerebellum'
+  basename="${sid}"
+
+  template "filter_with_atlas.sh"
+}
+
+
+process extract_plausible_cerebellum {
+  cpus 1
+
+  input:
+    set sid, file(tractogram) from ee_cerebellum_for_extract_plausible
+
+  output:
     set sid, "${sid}__all_cerebellum_plausibles.trk" into cerebellum_for_trk_plausible, cerebellum_for_rename
-    file "${sid}__all_in_cerebellum_nocx_nocerebwm.trk", "${sid}__all_in_cerebellum_in_Medulla.trk", "${sid}__all_in_cerebellum_in_Pons.trk"
-    file "${sid}__all_in_cerebellum_in_Midbrain.trk", "${sid}__all_in_cerebellum_in_redN_and_Thal.trk"
+    file "${sid}__all_in_cerebellum_nocx_nocerebwm.trk"
+    file "${sid}__all_in_cerebellum_in_Medulla.trk"
+    file "${sid}__all_in_cerebellum_in_Pons.trk"
+    file "${sid}__all_in_cerebellum_in_Midbrain.trk"
+    file "${sid}__all_in_cerebellum_in_redN_and_Thal.trk"
 
   script:
   """
@@ -227,7 +254,7 @@ process extract_plausible_cerebellum {
   END Cerebellum
 */
 
-process split_either_end_brainstem {
+process extract_ee_brainstem {
   cpus 1
 
   input:
@@ -235,7 +262,7 @@ process split_either_end_brainstem {
 
   output:
     set sid, "${sid}__wb_clean02.trk" into wb_for_split_end_in_CGMSWI
-    set sid, "${sid}__all_brainstem.trk" into brainstem_for_both_end_in_brainstem
+    set sid, "${sid}__all_brainstem.trk" into all_brainstem_for_extract_plausible
     file "${sid}__wb_clean02.txt" optional true
     file "${sid}__all_brainstem.txt" optional true
 
@@ -254,612 +281,58 @@ process split_either_end_brainstem {
   Brainstem
 */
 
-process brainstem_be_ee_brainstem {
+process extract_plausible_brainstem {
   cpus 1
 
   input:
-    set sid, file(tractogram) from brainstem_for_both_end_in_brainstem
-
+    set sid, file(tractogram) from all_brainstem_for_extract_plausible
   output:
-    set sid, "${sid}__all_brainstem_both_ends.trk" into brainstem_for_medulla_segmentation
-    set sid, "${sid}__all_brainstem_either_end.trk" into brainstem_for_through_cc
-    file "${sid}__all_brainstem_both_ends.txt" optional true
-    file "${sid}__all_brainstem_either_end.txt" optional true
-
-  script:
-    atlas=params.rois_folder+params.atlas.brainstem
-    mode=params.mode.both_ends
-    criteria=params.criteria.include
-    out_extension='all_brainstem_both_ends'
-    remaining_extension='all_brainstem_either_end'
-    basename="${sid}"
-
-    template "filter_with_atlas.sh"
-}
-
-/*
-  BOTH END Brainstem
-*/
-
-process brainstem_be_medulla_segmentation{
-  cpus 1
-
-  input:
-    set sid, file(tractogram) from brainstem_for_medulla_segmentation
-
-  output:
-    set sid, "${sid}__all_brainstem_both_ends_Medulla.trk" into brainstem_be_medulla_for_plausible
-    set sid, "${sid}__all_brainstem_both_ends_no_medulla.trk" into brainstem_for_noCP
-    file "${sid}__all_brainstem_both_ends_Medulla.txt" optional true
-    file "${sid}__all_brainstem_both_ends_no_medulla.txt" optional true
-
-  script:
-  """
-  scil_filter_tractogram.py ${tractogram} ${sid}__all_brainstem_both_ends_Medulla.trk \
-    --drawn_roi ${params.rois_folder}${params.atlas.CGM_SWM_subcortical} both_ends exclude \
-    --drawn_roi ${params.rois_folder}${params.atlas.midbrain} both_ends exclude \
-    --drawn_roi ${params.rois_folder}${params.atlas.CP} both_ends exclude \
-    --drawn_roi ${params.rois_folder}${params.atlas.pons} both_ends exclude \
-    --drawn_roi ${params.rois_folder}${params.atlas.medulla} both_ends include \
-    --drawn_roi ${params.rois_folder}${params.atlas.pons} any exclude -f
-
-  scil_filter_tractogram.py ${tractogram} ${sid}__all_brainstem_both_ends_no_medulla.trk \
-    --drawn_roi ${params.rois_folder}${params.atlas.CGM_SWM_subcortical} both_ends exclude \
-    --drawn_roi ${params.rois_folder}${params.atlas.midbrain} both_ends exclude \
-    --drawn_roi ${params.rois_folder}${params.atlas.CP} both_ends exclude \
-    --drawn_roi ${params.rois_folder}${params.atlas.pons} both_ends exclude \
-    --drawn_roi ${params.rois_folder}${params.atlas.medulla} both_ends exclude -f
-  """
-}
-
-process brainstem_be_noCP{
-  cpus 1
-
-  input:
-    set sid, file(tractogram) from brainstem_for_noCP
-
-  output:
-    set sid, "${sid}__all_brainstem_both_ends_no_medulla_noCP.trk" into brainstem_for_split_midbrain_pons
-    set sid, "${sid}__brainstem_bin_02.trk" into brainstem_bin_03
-    file "${sid}__all_brainstem_both_ends_no_medulla_noCP.txt" optional true
-    file "${sid}__brainstem_bin_02.txt" optional true
-
-  script:
-    atlas=params.rois_folder+params.atlas.CP
-    mode=params.mode.either_end
-    criteria=params.criteria.exclude
-    out_extension='all_brainstem_both_ends_no_medulla_noCP'
-    remaining_extension='brainstem_bin_02'
-    basename="${sid}"
-
-    template "filter_with_atlas.sh"
-}
-
-process brainstem_be_split_midbrain_pons{
-  cpus 1
-
-  input:
-    set sid, file(tractogram) from brainstem_for_split_midbrain_pons
-
-  output:
-    set sid, "${sid}__all_brainstem_both_ends_noMedulla_noCP_Midbrain.trk" into brainstem_be_midbrain_for_plausible
-    set sid, "${sid}__all_brainstem_both_ends_noMedulla_noCP_Pons.trk" into brainstem_be_pons_for_plausible
-    file "${sid}__all_brainstem_both_ends_noMedulla_noCP_Midbrain.txt" optional true
-    file "${sid}__all_brainstem_both_ends_noMedulla_noCP_Pons.txt" optional true
-
-  script:
-    atlas=params.rois_folder+params.atlas.midbrain
-    mode=params.mode.either_end
-    criteria=params.criteria.include
-    out_extension='all_brainstem_both_ends_noMedulla_noCP_Midbrain'
-    remaining_extension='all_brainstem_both_ends_noMedulla_noCP_Pons'
-    basename="${sid}"
-
-    template "filter_with_atlas.sh"
-}
-
-brainstem_be_medulla_for_plausible.join(brainstem_be_midbrain_for_plausible).join(brainstem_be_pons_for_plausible).set{plausible_brainstem}
-
-process brainstem_be_merge_plausible{
-  cpus 1
-
-  input:
-    set sid, file(trk01), file(trk02), file(trk03) from plausible_brainstem
-
-  output:
-    set sid, "${sid}__brainstem_be_plausible_tracks.trk" into brainstem_merge_plausible_01
-    file "${sid}__brainstem_be_plausible_tracks.txt" optional true
-
-  script:
-  """
-  scil_streamlines_math.py concatenate ${trk01} \
-                                       ${trk02} \
-                                       ${trk03} \
-                                       ${sid}__brainstem_be_plausible_tracks.trk -f
-  if ${params.debug}
-  then
-    scil_count_streamlines.py ${sid}__brainstem_be_plausible_tracks.trk > ${sid}__brainstem_be_plausible_tracks.txt
-  fi
-  """
-}
-
-/*
-  END BOTH END Brainstem
-*/
-
-/*
-  EITHER END Brainstem
-*/
-
-process brainstem_ee_through_CC{
-  cpus 1
-
-  input:
-    set sid, file(tractogram) from brainstem_for_through_cc
-
-  output:
-    set sid, "${sid}__all_brainstem_either_end_CC.trk" into brainstem_for_ipsi
-    set sid, "${sid}__all_brainstem_either_end_noCC.trk" into brainstem_for_merge_ipsi_noCC_01
-    file "${sid}__all_brainstem_either_end_CC.txt" optional true
-    file "${sid}__all_brainstem_either_end_noCC.txt" optional true
-
-  script:
-    atlas=params.rois_folder+params.atlas.cc
-    mode=params.mode.any
-    criteria=params.criteria.include
-    out_extension='all_brainstem_either_end_CC'
-    remaining_extension='all_brainstem_either_end_noCC'
-    basename="${sid}"
-
-  template "filter_with_atlas.sh"
-}
-
-process brainstem_ee_ipsi{
-  cpus 1
-
-  input:
-    set sid, file(tractogram) from brainstem_for_ipsi
-    each side from sides_ipsi
-
-  output:
-    set sid, "${sid}__all_brainstem_either_end_CC_ipsi_${side}.trk" into ipsi
-
-  script:
-  """
-  if [["$side"=='L']];
-  then
-    roi1=${params.rois_folder}${params.atlas.CGM_SWM_side}_L.nii.gz
-    roi2=${params.rois_folder}${params.atlas.ccR}
-  else
-    roi1=${params.rois_folder}${params.atlas.CGM_SWM_side}_R.nii.gz
-    roi2=${params.rois_folder}${params.atlas.ccL}
-  fi
-
-  scil_filter_tractogram.py ${tractogram} ${sid}__all_brainstem_either_end_CC_ipsi_${side}.trk \
-    --drawn_roi \${roi1} either_end include \
-    --drawn_roi \${roi2} any exclude -f;
-  """
-}
-
-ipsi.groupTuple().map{it.flatten().toList()}.set{brainstem_for_merge_ipsi_noCC_02}
-brainstem_for_merge_ipsi_noCC_01.join(brainstem_for_merge_ipsi_noCC_02).set{brainstem_for_merge_ipsi_noCC}
-
-/*
-Brainstem - Merge IPSI and either end noCC
-*/
-process brainstem_ee_merge_ipsi_and_noCC{
-  cpus 1
-
-  input:
-  set sid, file(trk01), file(trk02), file(trk03) from brainstem_for_merge_ipsi_noCC
-
-  output:
-  set sid, "${sid}__all_brainstem_either_end_tmp.trk" into brainstem_for_noBG_noCP_noThal
-
-  script:
-  """
-  scil_streamlines_math.py concatenate ${trk01} \
-                                       ${trk02} \
-                                       ${trk03} \
-                                       ${sid}__all_brainstem_either_end_tmp.trk
-  """
-}
-
-/*
-Brainstem - either end - remove BG, CP, Thal
-*/
-process brainstem_ee_noBG_noCP_noThal{
-  cpus 1
-
-  input:
-  set sid, file(tractogram) from brainstem_for_noBG_noCP_noThal
-
-  output:
-  set sid, "${sid}__all_brainstem_either_end_tmp_noBG_noCP_noThal.trk" into brainstem_for_ee_cgmswm, brainstem_for_red_nucleus
-  set sid, "${sid}__all_brainstem_either_tmp_Thal.trk" into brainstem_for_thalamus
-
-  script:
-  """
-  scil_filter_tractogram.py ${tractogram} ${sid}__all_brainstem_either_end_tmp_noBG_noCP_noThal.trk \
-    --drawn_roi ${params.rois_folder}${params.atlas.Put_Cd_GP_Amyg_SNr} ${params.mode.either_end} exclude  \
-    --drawn_roi ${params.rois_folder}${params.atlas.CP} ${params.mode.either_end} exclude  \
-    --drawn_roi ${params.rois_folder}${params.atlas.allThal} ${params.mode.either_end} exclude -f
-
-  scil_filter_tractogram.py ${tractogram} ${sid}__all_brainstem_either_tmp_Thal.trk \
-    --drawn_roi ${params.rois_folder}${params.atlas.Put_Cd_GP_Amyg_SNr} ${params.mode.either_end} exclude  \
-    --drawn_roi ${params.rois_folder}${params.atlas.CP} ${params.mode.either_end} exclude  \
-    --drawn_roi ${params.rois_folder}${params.atlas.allThal} ${params.mode.either_end} include -f
-  """
-}
-
-process brainstem_ee_thalamus{
-  cpus 1
-
-  input:
-  set sid, file(tractogram) from brainstem_for_thalamus
-
-  output:
-  set sid, "${sid}__all_brainstem_thalamus.trk" into brainstem_ee_all_thalamus_for_plausible
-
-  script:
-  """
-  scil_filter_tractogram.py ${tractogram} ${sid}__tmp.trk \
-    --drawn_roi ${params.rois_folder}${params.atlas.CP} ${params.mode.any} exclude -f
-
-  scil_detect_streamlines_loops.py ${sid}__tmp.trk ${sid}__all_brainstem_thalamus.trk -a 270 -f
-  """
-}
-
-process brainstem_ee_end_CGMSWM{
-  cpus 1
-
-  input:
-    set sid, file(tractogram) from brainstem_for_ee_cgmswm
-
-  output:
-    set sid, "${sid}__all_brainstem_either_end_tmp_CGM_SWM.trk" into brainstem_for_split_thal
-
-  script:
-  """
-    scil_filter_tractogram.py ${tractogram} ${sid}__all_brainstem_either_end_tmp_CGM_SWM.trk \
-      --drawn_roi ${params.rois_folder}${params.atlas.CGM_SWM} ${params.mode.either_end} include -f
-  """
-}
-
-/*
-Brainstem - Either end - End in Red Nucleus
-*/
-process brainstem_ee_red_nucleus{
-  cpus 1
-
-  input:
-    set sid, file(tractogram) from brainstem_for_red_nucleus
-
-  output:
-    set sid, "${sid}__all_brainstem_red_nucleus.trk" into brainstem_ee_red_nucleus_for_plausible
-
-  script:
-  """
-    scil_filter_tractogram.py ${tractogram} ${sid}__all_brainstem_either_end_tmp_RedN.trk \
-      --drawn_roi ${params.rois_folder}${params.atlas.CGM_SWM} ${params.mode.either_end} exclude -f
-    scil_outlier_rejection.py ${sid}__all_brainstem_either_end_tmp_RedN.trk \
-                              ${sid}__all_brainstem_red_nucleus.trk \
-                              --remaining_bundle ${sid}__all_brainstem_either_end_bin_05.trk \
-                              --alpha 0.4 -f
-  """
-}
-
-process brainstem_ee_end_CGMSWM_split_thal{
-  cpus 1
-
-  input:
-    set sid, file(tractogram) from brainstem_for_split_thal
-
-  output:
-    set sid, "${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_noThal.trk" into brainstem_for_merge_and_split_pons_01
-    set sid, "${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_Thal.trk" into brainstem_for_split_IC
+    set sid, "${sid}__all_brainstem_plausibles.trk" into brainstem_for_trk_plausible, brainstem_for_rename
+    file "${sid}__all_brainstem_unplausibles.trk"
+    file "${sid}__be_midbrain.trk"
+    file "${sid}__be_medulla.trk"
+    file "${sid}__be_pons.trk"
+    file "${sid}__ee_thalamus.trk"
+    file "${sid}__ee_red_nucleus.trk"
+    set sid, "${sid}__ee_fronto_pontine.trk" into brainstem_corticopontine_frontal_for_rename
+    set sid, "${sid}__ee_parietotemporooccipital_pontine.trk" into brainstem_ee_corticopontine_parietotemporooccipital_for_rename
+    set sid, "${sid}__ee_pyramidal.trk" into brainstem_pyramidal_for_rename
+    file "${sid}__ee_cortico_tectal.trk"
 
 
   script:
   """
-    scil_filter_tractogram.py ${tractogram} ${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_noThal.trk \
-      --drawn_roi ${params.rois_folder}${params.atlas.allThal} ${params.mode.any} exclude -f
-    scil_streamlines_math.py difference ${tractogram} ${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_noThal.trk \
-      ${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_Thal.trk -f
+  # Extract be midbrain
+  scil_filter_tractogram.py ${sid}__all_brainstem.trk ${sid}__be_midbrain.trk --filtering_list /filtering_lists/list_brainstem/brainstem_be_midbrain_filtering_list.txt -f
+  # Extract be medulla
+  scil_filter_tractogram.py ${sid}__all_brainstem.trk ${sid}__be_medulla.trk --filtering_list /filtering_lists/list_brainstem/brainstem_be_medulla_filtering_list.txt -f
+  # Extract be pons
+  scil_filter_tractogram.py ${sid}__all_brainstem.trk ${sid}__be_pons.trk --filtering_list /filtering_lists/list_brainstem/brainstem_be_pons_filtering_list.txt -f
+
+  # Extract ee thalamus
+  scil_filter_tractogram.py ${sid}__all_brainstem.trk ${sid}__ee_thalamus.trk --filtering_list /filtering_lists/list_brainstem/brainstem_ee_thalamus_filtering_list.txt -f
+  # Extract ee red_nucleus
+  scil_filter_tractogram.py ${sid}__all_brainstem.trk ${sid}__ee_red_nucleus.trk --filtering_list /filtering_lists/list_brainstem/brainstem_ee_red_nucleus_filtering_list.txt -f
+
+  # Prepartion for fronto-pontine, parietotemporooccipito-pontine, pyramidal, cortico-tectal
+  scil_filter_tractogram.py ${sid}__all_brainstem.trk ${sid}__ee_tmp_01.trk --filtering_list /filtering_lists/list_brainstem/brainstem_ee_tmp_01_filtering_list.txt -f
+  scil_filter_tractogram.py ${sid}__all_brainstem.trk ${sid}__ee_tmp_02.trk --filtering_list /filtering_lists/list_brainstem/brainstem_ee_tmp_02_filtering_list.txt -f
+  scil_streamlines_math.py concatenate ${sid}__ee_tmp_01.trk ${sid}__ee_tmp_02.trk ${sid}__ee_tmp_03.trk -f
+
+  # Extract ee Fronto-pontine
+  scil_filter_tractogram.py ${sid}__ee_tmp_03.trk ${sid}__ee_fronto_pontine.trk --filtering_list /filtering_lists/list_brainstem/brainstem_ee_F_pontine_filtering_list.txt -f
+  # Extract ee ParietoTemporooccipital pontine
+  scil_filter_tractogram.py ${sid}__ee_tmp_03.trk ${sid}__ee_parietotemporooccipital_pontine.trk --filtering_list /filtering_lists/list_brainstem/brainstem_ee_PTO_pontine_filtering_list.txt -f
+  # Extract ee Pyramidal
+  scil_filter_tractogram.py ${sid}__ee_tmp_03.trk ${sid}__ee_pyramidal.trk --filtering_list /filtering_lists/list_brainstem/brainstem_ee_pyramidal_filtering_list.txt -f
+  # Extract ee Tectal
+  scil_filter_tractogram.py ${sid}__ee_tmp_03.trk ${sid}__ee_cortico_tectal.trk --filtering_list /filtering_lists/list_brainstem/brainstem_ee_cortico_tectal_filtering_list.txt -f
+  scil_filter_streamlines_by_length.py ${sid}__ee_cortico_tectal.trk ${sid}__ee_cortico_tectal.trk --maxL 100 -f
+
+  scil_streamlines_math.py concatenate ${sid}__be_*.trk ${sid}__ee_*.trk ${sid}__all_brainstem_plausibles.trk -f
+  scil_streamlines_math.py difference ${sid}__all_brainstem.trk ${sid}__all_brainstem_plausibles.trk ${sid}__all_brainstem_unplausibles.trk -f
   """
 }
-
-/*
-Brainstem - Either End - End in CGMSWI Thal split IC
-*/
-process brainstem_ee_end_CGMSWM_Thal_split_IC{
-  cpus 1
-
-  input:
-    set sid, file(tractogram) from brainstem_for_split_IC
-
-  output:
-    set sid, "${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_Thal_IC.trk" into brainstem_for_split_CP
-    set sid, "${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_Thal_noIC.trk" into brainstem_for_3rd_order_PoC_01
-
-  script:
-  """
-    scil_filter_tractogram.py ${tractogram} ${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_Thal_IC.trk \
-      --drawn_roi ${params.rois_folder}${params.atlas.ic} ${params.mode.any} include -f
-    scil_streamlines_math.py difference ${tractogram} ${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_Thal_IC.trk \
-      ${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_Thal_noIC.trk -f
-  """
-}
-
-process brainstem_ee_end_CGMSWM_Thal_IC_split_CP{
-  cpus 1
-
-  input:
-    set sid, file(tractogram) from brainstem_for_split_CP
-
-  output:
-    set sid, "${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_Thal_IC_CP.trk" into brainstem_for_merge_and_split_pons_02
-    set sid, "${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_Thal_IC_noCP.trk" into brainstem_for_3rd_order_PoC_02
-
-  script:
-  """
-    scil_filter_tractogram.py ${tractogram} ${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_Thal_IC_CP.trk \
-      --drawn_roi ${params.rois_folder}${params.atlas.CP} ${params.mode.any} include -f
-    scil_streamlines_math.py difference ${tractogram} ${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_Thal_IC_CP.trk \
-      ${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_Thal_IC_noCP.trk -f
-  """
-}
-
-brainstem_for_3rd_order_PoC_01.join(brainstem_for_3rd_order_PoC_02).set{brainstem_for_3rd_order_PoC}
-
-process brainstem_ee_3rd_order_PoC{
-  cpus 1
-
-  input:
-    set sid, file(trk01), file(trk02) from brainstem_for_3rd_order_PoC
-
-  output:
-    set sid, "${sid}__all_brainstem_3rd_order_PoC.trk" into brainstem_ee_3rd_order_PoC_for_plausible
-
-  script:
-  """
-    scil_streamlines_math.py lazy_concatenate ${trk01} ${trk02} ${sid}__tmp1.trk
-    scil_filter_tractogram.py ${sid}__tmp1.trk ${sid}__tmp2.trk \
-      --drawn_roi ${params.rois_folder}${params.atlas.PoCGWM_all} ${params.mode.either_end} include \
-      --drawn_roi ${params.rois_folder}${params.atlas.medulla} ${params.mode.either_end} include -f
-    scil_outlier_rejection.py ${sid}__tmp2.trk ${sid}__all_brainstem_3rd_order_PoC.trk --alpha 0.4
-  """
-}
-
-brainstem_for_merge_and_split_pons_01.join(brainstem_for_merge_and_split_pons_02).set{brainstem_for_merge_and_split_pons}
-
-/*
-Brainstem - Either End - Merge noThal and Thal CP IC - Split Pons
-*/
-process brainstem_ee_merge_split_pons{
-  cpus 1
-
-  input:
-    set sid, file(trk01), file(trk02) from brainstem_for_merge_and_split_pons
-
-  output:
-    set sid, "${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_noThal_eePons.trk" into brainstem_for_corticopontine_frontal
-    set sid, "${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_noThal_no_eePons.trk" into brainstem_for_merge_not_ee_frontal_not_ee_pons_02
-
-  script:
-  """
-    scil_streamlines_math.py concatenate ${trk01} ${trk02} ${sid}__tmp01.trk
-    scil_filter_tractogram.py ${sid}__tmp01.trk ${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_noThal_eePons.trk \
-      --drawn_roi ${params.rois_folder}${params.atlas.pons} ${params.mode.either_end} include -f
-    scil_streamlines_math.py difference ${sid}__tmp01.trk ${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_noThal_eePons.trk \
-        ${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_noThal_no_eePons.trk -f
-  """
-}
-
-
-/*
-Brainstem - End in CGMSWI Thal IC noCP
-*/
-process brainstem_ee_corticopontic_frontal{
-  cpus 1
-
-  input:
-    set sid, file(tractogram) from brainstem_for_corticopontine_frontal
-
-  output:
-    set sid, "${sid}__all_brainstem_corticopontine_frontal.trk" into brainstem_corticopontine_frontal_for_plausible, brainstem_corticopontine_frontal_for_rename
-    set sid, "${sid}__all_brainstem_ee_tmp_CGM_SWM_tmp_noThal_ee_Pons_no_ee_frontal.trk" into brainstem_for_merge_not_ee_frontal_not_ee_pons_01
-
-  script:
-  """
-    scil_filter_tractogram.py ${tractogram} ${sid}__tmp01.trk \
-      --drawn_roi ${params.rois_folder}${params.atlas.frontal} ${params.mode.either_end} include -f
-    scil_streamlines_math.py difference ${tractogram} ${sid}__tmp01.trk \
-     ${sid}__all_brainstem_ee_tmp_CGM_SWM_tmp_noThal_ee_Pons_no_ee_frontal.trk -f
-
-    scil_detect_streamlines_loops.py ${sid}__tmp01.trk ${sid}__tmp02.trk -a 240 -f
-    scil_outlier_rejection.py ${sid}__tmp02.trk ${sid}__all_brainstem_corticopontine_frontal.trk --alpha 0.45 -f
-  """
-}
-
-brainstem_for_merge_not_ee_frontal_not_ee_pons_01.join(brainstem_for_merge_not_ee_frontal_not_ee_pons_02).set{brainstem_for_merge_not_ee_frontal_not_ee_pons_split_pons}
-
-/*
-Brainstem - Either End - Merge noThal and Thal CP IC - Split Pons
-*/
-process brainstem_ee_merge_not_ee_frontal_not_ee_pons_split_pons {
-  cpus 1
-
-  input:
-   set sid, file(trk01), file(trk02) from brainstem_for_merge_not_ee_frontal_not_ee_pons_split_pons
-
-  output:
-   set sid, "${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_noThal_ee_Pons.trk" into brainstem_for_corticopontine_parietotemporoccipital
-   set sid, "${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_noThal_no_ee_Pons.trk" into brainstem_for_merge_ee_pons_no_ee_parietooccipital_01
-
- script:
- """
-  scil_streamlines_math.py concatenate ${trk01} ${trk02} ${sid}__tmp01.trk
-
-  scil_filter_tractogram.py ${sid}__tmp01.trk ${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_noThal_ee_Pons.trk \
-    --drawn_roi ${params.rois_folder}${params.atlas.pons} ${params.mode.either_end} include -f
-
-  scil_streamlines_math.py difference ${sid}__tmp01.trk ${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_noThal_ee_Pons.trk \
-      ${sid}__all_brainstem_either_end_tmp_CGM_SWM_tmp_noThal_no_ee_Pons.trk -f
- """
-}
-
-/*
-Brainstem - End in CGMSWI Thal IC noCP
-*/
-
-process brainstem_ee_corticopontic_parietotemporooccipital{
-  cpus 1
-
-  input:
-    set sid, file(tractogram) from brainstem_for_corticopontine_parietotemporoccipital
-
-  output:
-    set sid, "${sid}__all_brainstem_corticopontine_parietotemporooccipital.trk" into brainstem_ee_corticopontine_parietotemporooccipital_for_plausible, brainstem_ee_corticopontine_parietotemporooccipital_for_rename
-    set sid, "${sid}__all_brainstem_not_ee_parieto_occipital.trk" into brainstem_for_merge_ee_pons_no_ee_parietooccipital_02
-
-  script:
-  """
-    scil_filter_tractogram.py ${tractogram} ${sid}__tmp_01.trk \
-      --drawn_roi ${params.rois_folder}${params.atlas.parietotemporooccipital} ${params.mode.either_end} include -f
-    scil_streamlines_math.py difference ${tractogram} ${sid}__tmp_01.trk \
-      ${sid}__all_brainstem_not_ee_parieto_occipital.trk -f
-    scil_detect_streamlines_loops.py ${sid}__tmp_01.trk ${sid}__tmp_02.trk -a 240 -f
-    scil_outlier_rejection.py ${sid}__tmp_01.trk "${sid}__all_brainstem_corticopontine_parietotemporooccipital.trk" --alpha 0.45 -f
-  """
-}
-
-brainstem_for_merge_ee_pons_no_ee_parietooccipital_01.join(brainstem_for_merge_ee_pons_no_ee_parietooccipital_02).set{brainstem_for_merge_ee_pons_no_ee_parietooccipital}
-process brainstem_ee_merge_no_ee_pons_no_ee_parieto_temporo_occipital_split_fronto_parietal {
- cpus 1
-
- input:
-  set sid, file(trk01), file(trk02) from brainstem_for_merge_ee_pons_no_ee_parietooccipital
-
- output:
-  set sid, "${sid}__all_brainstem_no_ee_fronto_parietal.trk" into brainstem_for_corticotectal_01
-  set sid, "${sid}__all_brainstem_ee_fronto_parietal.trk" into brainstem_for_pyramidal
-
- script:
- """
-  scil_streamlines_math.py concatenate ${trk01} ${trk02} ${sid}__tmp_01.trk -f
-  scil_filter_tractogram.py ${sid}__tmp_01.trk  ${sid}__all_brainstem_ee_fronto_parietal.trk \
-    --drawn_roi ${params.rois_folder}${params.atlas.frontoparietal} ${params.mode.either_end} include -f
-  scil_streamlines_math.py difference ${sid}__tmp_01.trk ${sid}__all_brainstem_ee_fronto_parietal.trk \
-    ${sid}__all_brainstem_no_ee_fronto_parietal.trk -f
- """
-}
-
-process brainstem_ee_pyramidal{
-  cpus 1
-
-  input:
-    set sid, file(tractogram) from brainstem_for_pyramidal
-
-  output:
-    set sid, "${sid}__all_brainstem_pyramidal.trk" into brainstem_pyramidal_for_merge, brainstem_pyramidal_for_rename
-    set sid, "${sid}__all_brainstem_not_ee_medulla.trk" into brainstem_for_corticotectal_02
-
-  script:
-  """
-    scil_filter_tractogram.py ${tractogram} ${sid}__tmp_01.trk \
-      --drawn_roi ${params.rois_folder}${params.atlas.medulla} ${params.mode.either_end} include -f
-
-    scil_streamlines_math.py difference ${tractogram} ${sid}__tmp_01.trk \
-      ${sid}__all_brainstem_not_ee_medulla.trk -f
-
-    scil_detect_streamlines_loops.py ${sid}__tmp_01.trk ${sid}__tmp_02.trk -a 240
-    scil_outlier_rejection.py ${sid}__tmp_02.trk  ${sid}__all_brainstem_pyramidal.trk --alpha 0.6 -f
-  """
-}
-
-brainstem_for_corticotectal_01.join(brainstem_for_corticotectal_02).set{brainstem_for_corticotectal}
-process brainstem_ee_corticotectal{
-  cpus 1
-
-  input:
-    set sid, file(trk01), file(trk02) from brainstem_for_corticotectal
-
-  output:
-    set sid, "${sid}__all_brainstem_corticotectal.trk" into brainstem_corticotectal_for_plausible
-
-  script:
-  """
-    scil_streamlines_math.py concatenate ${trk01} ${trk02} ${sid}__tmp_01.trk
-    scil_filter_tractogram.py ${sid}__tmp_01.trk ${sid}__tmp_02.trk \
-      --drawn_roi ${params.rois_folder}${params.atlas.midbrain} ${params.mode.either_end} include -f
-    scil_detect_streamlines_loops.py ${sid}__tmp_02.trk ${sid}__tmp_noloop.trk -a 240
-    scil_outlier_rejection.py ${sid}__tmp_noloop.trk ${sid}__all_brainstem_corticotectal.trk --alpha 0.5
-  """
-}
-
-brainstem_ee_all_thalamus_for_plausible.join(brainstem_ee_red_nucleus_for_plausible).join(brainstem_ee_3rd_order_PoC_for_plausible).join(brainstem_corticopontine_frontal_for_plausible).join(brainstem_pyramidal_for_merge).join(brainstem_ee_corticopontine_parietotemporooccipital_for_plausible).join(brainstem_corticotectal_for_plausible).set{brainstem_ee_merge_plausible}
-
-/*
-Brainstem - Either End - Concatenating plausible streamlines Brainstem
-*/
-process brainstem_ee_merge_plausible{
-  cpus 1
-
-  input:
-  set sid, file(trk01), file(trk02), file(trk03), file(trk04), file(trk05), file(trk06), file(trk07) from brainstem_ee_merge_plausible
-
-  output:
-  set sid, "${sid}__brainstem_either_ends_plausible_tracks.trk" into brainstem_merge_plausible_02
-  file "${sid}__brainstem_either_ends_plausible_tracks.txt" optional true
-
-  script:
-  """
-  scil_streamlines_math.py concatenate ${trk01} \
-                                       ${trk02} \
-                                       ${trk03} \
-                                       ${trk04} \
-                                       ${trk05} \
-                                       ${trk06} \
-                                       ${trk07} \
-                                       ${sid}__brainstem_either_ends_plausible_tracks.trk -f
-  if ${params.debug}
-  then
-    scil_count_streamlines.py ${sid}__brainstem_either_ends_plausible_tracks.trk > ${sid}__brainstem_either_ends_plausible_tracks.txt
-  fi
-  """
-}
-
-/*
-  END EITHER END Brainstem
-*/
-
-brainstem_merge_plausible_01.join(brainstem_merge_plausible_02).set{brainstem_merge_plausible}
-process brainstem_merge_plausible{
-  cpus 1
-
-  input:
-  set sid, file(trk01), file(trk02) from brainstem_merge_plausible
-
-  output:
-  set sid, "${sid}__brainstem_plausible_tracks.trk" into brainstem_for_trk_plausible, brainstem_for_rename
-  file "${sid}__brainstem_plausible_tracks.txt" optional true
-
-  script:
-  """
-  scil_streamlines_math.py concatenate ${trk01} \
-                                       ${trk02} \
-                                       ${sid}__brainstem_plausible_tracks.trk -f
-  if ${params.debug}
-  then
-    scil_count_streamlines.py ${sid}__brainstem_plausible_tracks.trk > ${sid}__brainstem_plausible_tracks.txt
-  fi
-  """
-}
-
-/*
-  END Brainstem
-*/
 
 /*
 Brain - Either end in CGM SWM

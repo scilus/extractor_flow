@@ -1,5 +1,5 @@
 BootStrap: docker
-From: scilus/docker-scilpy:latest
+From: scilus/scilpy:1.1.0
 
 %setup
 	export ROIs=JHU_template_GIN_dil.tar.bz2
@@ -11,8 +11,8 @@ From: scilus/docker-scilpy:latest
 	tar -jxf $filtering_lists -C $SINGULARITY_ROOTFS/filtering_lists
 
 %post
-  apt-get install -y libglu1
-  wget http://trackvis.org/bin/TrackVis_v0.6.1_x86_64.tar.gz
+	apt-get install -y libglu1
+	wget http://trackvis.org/bin/TrackVis_v0.6.1_x86_64.tar.gz
 	mkdir $SINGULARITY_ROOTFS/TrackVis
 	tar -xzf TrackVis_v0.6.1_x86_64.tar.gz -C $SINGULARITY_ROOTFS/TrackVis
 	export PATH=$SINGULARITY_ROOTFS/TrackVis:$PATH
