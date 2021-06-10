@@ -30,7 +30,7 @@ else {
     error "Error ~ Please use --root for the input data."
 }
 
-in_tractogram.into{for_remove_out_not_JHU; in_tractogram_for_extract_first_unplausible; in_tractogram_for_extract_unplausible}
+in_tractogram.into{for_remove_invalid_streamlines; in_tractogram_for_extract_first_unplausible; in_tractogram_for_extract_unplausible}
 
 sides = params.sides?.tokenize(',')
 Channel.from(sides).into{sides_ipsi;
@@ -41,6 +41,21 @@ Channel.from(sides).into{sides_ipsi;
                          side_corticopontineF;
                          side_corticopontinePOT;
                          side_cst}
+
+process Remove_invalid_streamlines {
+    cpus 1
+
+    input:
+      set sid, file(tractogram) from for_remove_invalid_streamlines
+
+    output:
+      set sid, "${sid}__rm_invalid_streamlines.trk" into for_remove_out_not_JHU
+
+    script:
+    """
+      scil_remove_invalid_streamlines.py ${tractogram} ${sid}__rm_invalid_streamlines.trk --cut_invalid --remove_single_point -f
+    """
+}
 
 process Remove_out_not_JHU {
     cpus 1
@@ -299,7 +314,6 @@ process extract_plausible_brainstem {
     set sid, "${sid}__ee_pyramidal.trk" into brainstem_pyramidal_for_rename
     file "${sid}__ee_cortico_tectal.trk"
 
-
   script:
   """
   # Extract be midbrain
@@ -328,6 +342,8 @@ process extract_plausible_brainstem {
   # Extract ee Tectal
   scil_filter_tractogram.py ${sid}__ee_tmp_03.trk ${sid}__ee_cortico_tectal.trk --filtering_list /filtering_lists/list_brainstem/brainstem_ee_cortico_tectal_filtering_list.txt -f
   scil_filter_streamlines_by_length.py ${sid}__ee_cortico_tectal.trk ${sid}__ee_cortico_tectal.trk --maxL 100 -f
+
+  rm -f ${sid}__*tmp_*.trk
 
   scil_streamlines_math.py concatenate ${sid}__be_*.trk ${sid}__ee_*.trk ${sid}__all_brainstem_plausibles.trk -f
   scil_streamlines_math.py difference ${sid}__all_brainstem.trk ${sid}__all_brainstem_plausibles.trk ${sid}__all_brainstem_unplausibles.trk -f

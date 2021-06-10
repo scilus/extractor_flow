@@ -8,3 +8,5 @@ RUN wget http://trackvis.org/bin/TrackVis_v0.6.1_x86_64.tar.gz
 run mkdir TrackVis
 RUN tar -xzf TrackVis_v0.6.1_x86_64.tar.gz -C TrackVis
 ENV PATH="/TrackVis:${PATH}"
+
+RUN apt -y install libglu1
