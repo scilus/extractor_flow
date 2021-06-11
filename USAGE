@@ -9,7 +9,7 @@ nextflow run main.nf [OPTIONAL_ARGUMENTS] (--root)
 
 DESCRIPTION
 
-    --root=/path/to/[root]              Root folder containing multiple subjects
+    --input=/path/to/[root]              Root folder containing multiple subjects
 
                                         [root]
                                         ├── S1

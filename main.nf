@@ -1,6 +1,6 @@
 #!/usr/bin/env nextflow
 
-params.root = false
+params.input = false
 params.help = false
 params.debug = true
 
@@ -17,9 +17,9 @@ if(params.help) {
     return
     }
 
-if (params.root){
-    log.info "Input: $params.root"
-    root = file(params.root)
+if (params.input){
+    log.info "Input: $params.input"
+    root = file(params.input)
     in_tractogram = Channel
         .fromFilePairs("$root/**/*.trk",
                        size:1,
@@ -27,7 +27,7 @@ if (params.root){
                        flat: true) {it.parent.name}
 }
 else {
-    error "Error ~ Please use --root for the input data."
+    error "Error ~ Please use --input for the input data."
 }
 
 in_tractogram.into{for_remove_invalid_streamlines; in_tractogram_for_extract_first_unplausible; in_tractogram_for_extract_unplausible}
@@ -416,7 +416,7 @@ process split_CC_BG {
   mode=params.mode.either_end
   criteria=params.criteria.include
   out_extension="contra_BG_" + "${side}"
-  remaining_extension=params.ext.notUsed
+  remaining_extension="notUsed"
   basename="${sid}"
 
   template "filter_with_atlas.sh"
