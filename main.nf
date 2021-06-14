@@ -25,12 +25,39 @@ if (params.input){
                        size:1,
                        maxDepth:1,
                        flat: true) {it.parent.name}
+
+    in_tractogram.into{check_trks;
+                       in_tractogram_for_extract_first_unplausible;
+                       in_tractogram_for_extract_unplausible;
+                       in_tractogram_for_transformation;
+                       in_tractogram_for_mix}
+
+
+    Channel
+    .fromPath("$root/**/*_T1w.nii.gz",
+              maxDepth:1)
+             .map{[it.parent.name, it]}
+             .into{t1s_for_register; t1s_for_transformation; check_t1s; t1s_empty}
+
+
 }
 else {
     error "Error ~ Please use --input for the input data."
 }
 
-in_tractogram.into{for_remove_invalid_streamlines; in_tractogram_for_extract_first_unplausible; in_tractogram_for_extract_unplausible}
+check_trks.count().into{check_subjects_number; number_subj_for_null_check}
+check_t1s.count().set{number_t1s_for_compare}
+
+number_subj_for_null_check
+.subscribe{a -> if (a == 0)
+    error "Error ~ No subjects found. Please check the naming convention, your --input path."}
+
+check_subjects_number
+  .concat(number_t1s_for_compare)
+  .toList()
+  .subscribe{a, b -> if (a != b && b > 0)
+  error "Error ~ Some subjects have a T1w and others don't.\n" +
+        "Please be sure to have the same acquisitions for all subjects."}
 
 sides = params.sides?.tokenize(',')
 Channel.from(sides).into{sides_ipsi;
@@ -42,6 +69,71 @@ Channel.from(sides).into{sides_ipsi;
                          side_corticopontinePOT;
                          side_cst}
 
+/* BEGINNING TRANSFO */
+
+process Register_T1 {
+    cpus params.processes
+
+    input:
+    set sid, file(t1) from t1s_for_register
+
+    output:
+    set sid, "${sid}__output0GenericAffine.mat"  into transformation_for_t1s, transformation_for_trk
+    file "${sid}__t1_transformed.nii.gz"
+
+    script:
+    """
+    antsRegistrationSyN.sh -d 3 -m ${t1} -f ${params.rois_folder}${params.atlas.JHU} -n ${params.processes} -o "${sid}__output" -t a
+    mv ${sid}__outputWarped.nii.gz ${sid}__t1_transformed.nii.gz
+    """
+}
+transformation_for_t1s
+    .cross(t1s_for_transformation)
+    .map { [ it[0][0], it[0][1], it[1][1] ] }
+    .set{nii_and_template_for_transformation}
+
+process Transform_NII {
+    cpus 1
+
+    input:
+    set sid, file(transfo), file(nii) from nii_and_template_for_transformation
+
+    output:
+    file "*_transformed.nii.gz"
+
+    script:
+    """
+    antsApplyTransforms -d 3 -i $nii -r ${params.rois_folder}${params.atlas.JHU} -t $transfo -o ${nii.getSimpleName()}_transformed.nii.gz
+    """
+}
+
+transformation_for_trk
+    .cross(in_tractogram_for_transformation)
+    .map { [ it[0][0], it[0][1], it[1][1] ] }
+    .set{trk_and_template_for_transformation}
+
+process Transform_TRK {
+    cpus 1
+
+    input:
+    set sid, file(transfo), file(trk) from trk_and_template_for_transformation
+
+    output:
+    set sid, "${sid}_*_transformed.trk" into transformed_for_remove_out_not_JHU
+
+    script:
+    """
+    scil_apply_transform_to_tractogram.py $trk ${params.rois_folder}${params.atlas.JHU} ${transfo} ${trk.getSimpleName()}_transformed.trk --remove_invalid --inverse
+    """
+}
+
+/* END TRANSFO */
+
+for_remove_invalid_streamlines = Channel.empty()
+if (t1s_empty.count().get()==0){
+  for_remove_invalid_streamlines = for_remove_invalid_streamlines.mix(in_tractogram_for_mix)
+}
+
 process Remove_invalid_streamlines {
     cpus 1
 
@@ -49,13 +141,15 @@ process Remove_invalid_streamlines {
       set sid, file(tractogram) from for_remove_invalid_streamlines
 
     output:
-      set sid, "${sid}__rm_invalid_streamlines.trk" into for_remove_out_not_JHU
+      set sid, "${sid}__rm_invalid_streamlines.trk" into rm_invalid_for_remove_out_not_JHU
 
     script:
     """
       scil_remove_invalid_streamlines.py ${tractogram} ${sid}__rm_invalid_streamlines.trk --cut_invalid --remove_single_point -f
     """
 }
+
+rm_invalid_for_remove_out_not_JHU.mix(transformed_for_remove_out_not_JHU).set{for_remove_out_not_JHU}
 
 process Remove_out_not_JHU {
     cpus 1
@@ -680,7 +774,7 @@ process split_ushape_CGM_asso {
     scil_filter_tractogram.py ${sid}__tmp2_${side}.trk ${sid}__asso_Ushape_${side}.trk \
       --drawn_roi ${params.rois_folder}${params.atlas.DWM}_${side}.nii.gz ${params.mode.any} exclude
 
-    track_vis ${sid}__asso_Ushape_${side}.trk -u 0.5 1 -nr -o ${sid}__asso_Ushape_${side}_u.trk
+    scil_extract_ushape.py ${sid}__asso_Ushape_${side}.trk -minU 0.5 -maxU 1 ${sid}__asso_Ushape_${side}_u.trk
 
     scil_streamlines_math.py difference ${sid}__tmp2_${side}.trk ${sid}__asso_Ushape_${side}.trk \
                                ${sid}__asso_DWM_${side}.trk -f
@@ -1282,7 +1376,7 @@ process asso_be_frontal_gyrus {
   script:
   """
   scil_filter_tractogram.py ${tractogram} tmp.trk --filtering_list /filtering_lists/ASSO_be_${gyrus}_${side}_filtering_list.txt -f
-  track_vis tmp.trk -u 0.5 1 -nr -o ${sid}_asso_intra_be_frontal_${gyrus}_${side}_u.trk
+  scil_extract_ushape.py tmp.trk -minU 0.5 -maxU 1 ${sid}_asso_intra_be_frontal_${gyrus}_${side}_u.trk
   """
 }
 
@@ -1321,7 +1415,7 @@ process asso_ee_frontal_gyrus {
   """
   scil_filter_tractogram.py ${tractogram} tmp_01.trk --filtering_list /filtering_lists/ASSO_ee_${gyrus}_${side}_filtering_list.txt -f
   scil_filter_streamlines_by_length.py tmp_01.trk tmp_02.trk --maxL ${max_length} -f
-  track_vis tmp_02.trk -u 0.5 1 -nr -o ${sid}_asso_intra_ee_frontal_${gyrus}_${side}.trk
+  scil_extract_ushape.py tmp_02.trk -minU 0.5 -maxU 1 ${sid}_asso_intra_ee_frontal_${gyrus}_${side}.trk
   """
 }
 
@@ -1359,7 +1453,7 @@ process asso_be_occipital_gyrus {
   script:
   """
   scil_filter_tractogram.py ${tractogram} tmp.trk --filtering_list /filtering_lists/ASSO_be_${gyrus}_${side}_filtering_list.txt -f
-  track_vis tmp.trk -u 0.5 1 -nr -o ${sid}_asso_intra_be_occipital_${gyrus}_${side}_u.trk
+  scil_extract_ushape.py tmp.trk -minU 0.5 -maxU 1 ${sid}_asso_intra_be_occipital_${gyrus}_${side}_u.trk
   """
 }
 
@@ -1398,7 +1492,7 @@ process asso_ee_occipital_gyrus {
   """
   scil_filter_tractogram.py ${tractogram} tmp_01.trk --filtering_list /filtering_lists/ASSO_ee_${gyrus}_${side}_filtering_list.txt -f
   scil_filter_streamlines_by_length.py tmp_01.trk tmp_02.trk --maxL ${max_length} -f
-  track_vis tmp_02.trk -u 0.5 1 -nr -o ${sid}_asso_intra_ee_occipital_${gyrus}_${side}.trk
+  scil_extract_ushape.py tmp_02.trk -minU 0.5 -maxU 1 ${sid}_asso_intra_ee_occipital_${gyrus}_${side}.trk
   """
 }
 
@@ -1436,7 +1530,7 @@ process asso_be_parietal_gyrus {
   script:
   """
   scil_filter_tractogram.py ${tractogram} tmp.trk --filtering_list /filtering_lists/ASSO_be_${gyrus}_${side}_filtering_list.txt -f
-  track_vis tmp.trk -u 0.5 1 -nr -o ${sid}_asso_intra_be_parietal_${gyrus}_${side}_u.trk
+  scil_extract_ushape.py tmp.trk -minU 0.5 -maxU 1 ${sid}_asso_intra_be_parietal_${gyrus}_${side}_u.trk
   """
 }
 
@@ -1475,7 +1569,7 @@ process asso_ee_parietal_gyrus {
   """
   scil_filter_tractogram.py ${tractogram} tmp_01.trk --filtering_list /filtering_lists/ASSO_ee_${gyrus}_${side}_filtering_list.txt -f
   scil_filter_streamlines_by_length.py tmp_01.trk tmp_02.trk --maxL ${max_length} -f
-  track_vis tmp_02.trk -u 0.5 1 -nr -o ${sid}_asso_intra_ee_parietal_${gyrus}_${side}.trk
+  scil_extract_ushape.py tmp_02.trk -minU 0.5 -maxU 1 ${sid}_asso_intra_ee_parietal_${gyrus}_${side}.trk
   """
 }
 
@@ -1513,7 +1607,7 @@ process asso_be_temporal_gyrus {
   script:
   """
   scil_filter_tractogram.py ${tractogram} tmp.trk --filtering_list /filtering_lists/ASSO_be_${gyrus}_${side}_filtering_list.txt -f
-  track_vis tmp.trk -u 0.5 1 -nr -o ${sid}_asso_intra_be_temporal_${gyrus}_${side}_u.trk
+  scil_extract_ushape.py tmp.trk -minU 0.5 -maxU 1 ${sid}_asso_intra_be_temporal_${gyrus}_${side}_u.trk
   """
 }
 
@@ -1552,7 +1646,7 @@ process asso_ee_temporal_gyrus {
   """
   scil_filter_tractogram.py ${tractogram} tmp_01.trk --filtering_list /filtering_lists/ASSO_ee_${gyrus}_${side}_filtering_list.txt -f
   scil_filter_streamlines_by_length.py tmp_01.trk tmp_02.trk --maxL ${max_length} -f
-  track_vis tmp_02.trk -u 0.5 1 -nr -o ${sid}_asso_intra_ee_temporal_${gyrus}_${side}.trk
+  scil_extract_ushape.py tmp_02.trk -minU 0.5 -maxU 1 ${sid}_asso_intra_ee_temporal_${gyrus}_${side}.trk
   """
 }
 
