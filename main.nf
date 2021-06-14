@@ -96,13 +96,13 @@ process Register_T1 {
         scil_image_math.py convert bet/BrainExtractionMask.nii.gz ${sid}__t1_bet_mask.nii.gz --data_type uint8
         scil_image_math.py multiplication $t1 ${sid}__t1_bet_mask.nii.gz ${sid}__t1_bet.nii.gz
 
-        antsRegistrationSyN.sh -d 3 -m ${sid}__t1_bet.nii.gz -f ${params.rois_folder}${params.atlas.JHU} -n ${params.processes} -o "${sid}__output" -t a
+        antsRegistrationSyN.sh -d 3 -m ${sid}__t1_bet.nii.gz -f ${params.rois_folder}${params.atlas.template} -n ${params.processes} -o "${sid}__output" -t a
         mv ${sid}__outputWarped.nii.gz ${sid}__t1_transformed.nii.gz
     """
     }
     else{
     """
-        antsRegistrationSyN.sh -d 3 -m ${t1} -f ${params.rois_folder}${params.atlas.JHU} -n ${params.processes} -o "${sid}__output" -t a
+        antsRegistrationSyN.sh -d 3 -m ${t1} -f ${params.rois_folder}${params.atlas.template} -n ${params.processes} -o "${sid}__output" -t a
         mv ${sid}__outputWarped.nii.gz ${sid}__t1_transformed.nii.gz
     """
     }
@@ -123,7 +123,7 @@ process Transform_NII {
 
     script:
     """
-    antsApplyTransforms -d 3 -i $nii -r ${params.rois_folder}${params.atlas.JHU} -t $transfo -o ${nii.getSimpleName()}_transformed.nii.gz
+    antsApplyTransforms -d 3 -i $nii -r ${params.rois_folder}${params.atlas.template} -t $transfo -o ${nii.getSimpleName()}_transformed.nii.gz
     """
 }
 
@@ -143,7 +143,7 @@ process Transform_TRK {
 
     script:
     """
-    scil_apply_transform_to_tractogram.py $trk ${params.rois_folder}${params.atlas.JHU} ${transfo} ${trk.getSimpleName()}_transformed.trk --remove_invalid --inverse
+    scil_apply_transform_to_tractogram.py $trk ${params.rois_folder}${params.atlas.template} ${transfo} ${trk.getSimpleName()}_transformed.trk --remove_invalid --inverse
     """
 }
 
