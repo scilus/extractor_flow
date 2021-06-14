@@ -9,7 +9,8 @@ if(params.help) {
     usage = file("$baseDir/USAGE")
 
     bindings = ["rois_folder":"$params.rois_folder",
-                "filtering_lists_folder": "$params.filtering_lists_folder"]
+                "filtering_lists_folder": "$params.filtering_lists_folder",
+                "run_bet":"$params.run_bet"]
 
     engine = new groovy.text.SimpleTemplateEngine()
     template = engine.createTemplate(usage.text).make(bindings)
@@ -34,7 +35,7 @@ if (params.input){
 
 
     Channel
-    .fromPath("$root/**/*_T1w.nii.gz",
+    .fromPath("$root/**/*_t1.nii.gz",
               maxDepth:1)
              .map{[it.parent.name, it]}
              .into{t1s_for_register; t1s_for_transformation; check_t1s; t1s_empty}
@@ -78,14 +79,33 @@ process Register_T1 {
     set sid, file(t1) from t1s_for_register
 
     output:
-    set sid, "${sid}__output0GenericAffine.mat"  into transformation_for_t1s, transformation_for_trk
+    set sid, "${sid}__output0GenericAffine.mat" into transformation_for_t1s, transformation_for_trk
     file "${sid}__t1_transformed.nii.gz"
+    file "${sid}__t1_bet_mask.nii.gz" optional true
+    file "${sid}__t1_bet.nii.gz" optional true
 
     script:
+    if (params.run_bet){
     """
-    antsRegistrationSyN.sh -d 3 -m ${t1} -f ${params.rois_folder}${params.atlas.JHU} -n ${params.processes} -o "${sid}__output" -t a
-    mv ${sid}__outputWarped.nii.gz ${sid}__t1_transformed.nii.gz
+        export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=$task.cpus
+        export OMP_NUM_THREADS=1
+        export OPENBLAS_NUM_THREADS=1
+        export ANTS_RANDOM_SEED=1234
+        antsBrainExtraction.sh -d 3 -a $t1 -e $params.template_t1/t1_template.nii.gz\
+            -o bet/ -m $params.template_t1/t1_brain_probability_map.nii.gz -u 0
+        scil_image_math.py convert bet/BrainExtractionMask.nii.gz ${sid}__t1_bet_mask.nii.gz --data_type uint8
+        scil_image_math.py multiplication $t1 ${sid}__t1_bet_mask.nii.gz ${sid}__t1_bet.nii.gz
+
+        antsRegistrationSyN.sh -d 3 -m ${sid}__t1_bet.nii.gz -f ${params.rois_folder}${params.atlas.JHU} -n ${params.processes} -o "${sid}__output" -t a
+        mv ${sid}__outputWarped.nii.gz ${sid}__t1_transformed.nii.gz
     """
+    }
+    else{
+    """
+        antsRegistrationSyN.sh -d 3 -m ${t1} -f ${params.rois_folder}${params.atlas.JHU} -n ${params.processes} -o "${sid}__output" -t a
+        mv ${sid}__outputWarped.nii.gz ${sid}__t1_transformed.nii.gz
+    """
+    }
 }
 transformation_for_t1s
     .cross(t1s_for_transformation)

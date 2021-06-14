@@ -22,7 +22,9 @@ DESCRIPTION
 
 OPTIONAL ARGUMENTS (current value)
 
-    --debug                             Debug will output more streamline files
+
+    --run_bet                           Run bet if your t1s are not brain extracted ($run_bet).
+    --debug                             Debug will output more streamline files.
 
 AVAILABLE PROFILES (using -profile option (e.g. -profile macos))
 
