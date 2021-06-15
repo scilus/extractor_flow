@@ -794,7 +794,7 @@ process split_ushape_CGM_asso {
     scil_filter_tractogram.py ${sid}__tmp2_${side}.trk ${sid}__asso_Ushape_${side}.trk \
       --drawn_roi ${params.rois_folder}${params.atlas.DWM}_${side}.nii.gz ${params.mode.any} exclude
 
-    scil_extract_ushape.py ${sid}__asso_Ushape_${side}.trk -minU 0.5 -maxU 1 ${sid}__asso_Ushape_${side}_u.trk
+    scil_extract_ushape.py ${sid}__asso_Ushape_${side}.trk --minU 0.5 --maxU 1 ${sid}__asso_Ushape_${side}_u.trk
 
     scil_streamlines_math.py difference ${sid}__tmp2_${side}.trk ${sid}__asso_Ushape_${side}.trk \
                                ${sid}__asso_DWM_${side}.trk -f
@@ -1396,7 +1396,7 @@ process asso_be_frontal_gyrus {
   script:
   """
   scil_filter_tractogram.py ${tractogram} tmp.trk --filtering_list /filtering_lists/ASSO_be_${gyrus}_${side}_filtering_list.txt -f
-  scil_extract_ushape.py tmp.trk -minU 0.5 -maxU 1 ${sid}_asso_intra_be_frontal_${gyrus}_${side}_u.trk
+  scil_extract_ushape.py tmp.trk --minU 0.5 --maxU 1 ${sid}_asso_intra_be_frontal_${gyrus}_${side}_u.trk
   """
 }
 
@@ -1435,7 +1435,7 @@ process asso_ee_frontal_gyrus {
   """
   scil_filter_tractogram.py ${tractogram} tmp_01.trk --filtering_list /filtering_lists/ASSO_ee_${gyrus}_${side}_filtering_list.txt -f
   scil_filter_streamlines_by_length.py tmp_01.trk tmp_02.trk --maxL ${max_length} -f
-  scil_extract_ushape.py tmp_02.trk -minU 0.5 -maxU 1 ${sid}_asso_intra_ee_frontal_${gyrus}_${side}.trk
+  scil_extract_ushape.py tmp_02.trk --minU 0.5 --maxU 1 ${sid}_asso_intra_ee_frontal_${gyrus}_${side}.trk
   """
 }
 
@@ -1473,7 +1473,7 @@ process asso_be_occipital_gyrus {
   script:
   """
   scil_filter_tractogram.py ${tractogram} tmp.trk --filtering_list /filtering_lists/ASSO_be_${gyrus}_${side}_filtering_list.txt -f
-  scil_extract_ushape.py tmp.trk -minU 0.5 -maxU 1 ${sid}_asso_intra_be_occipital_${gyrus}_${side}_u.trk
+  scil_extract_ushape.py tmp.trk --minU 0.5 --maxU 1 ${sid}_asso_intra_be_occipital_${gyrus}_${side}_u.trk
   """
 }
 
@@ -1512,7 +1512,7 @@ process asso_ee_occipital_gyrus {
   """
   scil_filter_tractogram.py ${tractogram} tmp_01.trk --filtering_list /filtering_lists/ASSO_ee_${gyrus}_${side}_filtering_list.txt -f
   scil_filter_streamlines_by_length.py tmp_01.trk tmp_02.trk --maxL ${max_length} -f
-  scil_extract_ushape.py tmp_02.trk -minU 0.5 -maxU 1 ${sid}_asso_intra_ee_occipital_${gyrus}_${side}.trk
+  scil_extract_ushape.py tmp_02.trk --minU 0.5 --maxU 1 ${sid}_asso_intra_ee_occipital_${gyrus}_${side}.trk
   """
 }
 
@@ -1550,7 +1550,7 @@ process asso_be_parietal_gyrus {
   script:
   """
   scil_filter_tractogram.py ${tractogram} tmp.trk --filtering_list /filtering_lists/ASSO_be_${gyrus}_${side}_filtering_list.txt -f
-  scil_extract_ushape.py tmp.trk -minU 0.5 -maxU 1 ${sid}_asso_intra_be_parietal_${gyrus}_${side}_u.trk
+  scil_extract_ushape.py tmp.trk --minU 0.5 --maxU 1 ${sid}_asso_intra_be_parietal_${gyrus}_${side}_u.trk
   """
 }
 
@@ -1589,7 +1589,7 @@ process asso_ee_parietal_gyrus {
   """
   scil_filter_tractogram.py ${tractogram} tmp_01.trk --filtering_list /filtering_lists/ASSO_ee_${gyrus}_${side}_filtering_list.txt -f
   scil_filter_streamlines_by_length.py tmp_01.trk tmp_02.trk --maxL ${max_length} -f
-  scil_extract_ushape.py tmp_02.trk -minU 0.5 -maxU 1 ${sid}_asso_intra_ee_parietal_${gyrus}_${side}.trk
+  scil_extract_ushape.py tmp_02.trk --minU 0.5 --maxU 1 ${sid}_asso_intra_ee_parietal_${gyrus}_${side}.trk
   """
 }
 
@@ -1627,7 +1627,7 @@ process asso_be_temporal_gyrus {
   script:
   """
   scil_filter_tractogram.py ${tractogram} tmp.trk --filtering_list /filtering_lists/ASSO_be_${gyrus}_${side}_filtering_list.txt -f
-  scil_extract_ushape.py tmp.trk -minU 0.5 -maxU 1 ${sid}_asso_intra_be_temporal_${gyrus}_${side}_u.trk
+  scil_extract_ushape.py tmp.trk --minU 0.5 --maxU 1 ${sid}_asso_intra_be_temporal_${gyrus}_${side}_u.trk
   """
 }
 
@@ -1666,7 +1666,7 @@ process asso_ee_temporal_gyrus {
   """
   scil_filter_tractogram.py ${tractogram} tmp_01.trk --filtering_list /filtering_lists/ASSO_ee_${gyrus}_${side}_filtering_list.txt -f
   scil_filter_streamlines_by_length.py tmp_01.trk tmp_02.trk --maxL ${max_length} -f
-  scil_extract_ushape.py tmp_02.trk -minU 0.5 -maxU 1 ${sid}_asso_intra_ee_temporal_${gyrus}_${side}.trk
+  scil_extract_ushape.py tmp_02.trk --minU 0.5 --maxU 1 ${sid}_asso_intra_ee_temporal_${gyrus}_${side}.trk
   """
 }
 
