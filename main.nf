@@ -28,8 +28,7 @@ if (params.input){
                        flat: true) {it.parent.name}
 
     in_tractogram.into{check_trks;
-                       in_tractogram_for_extract_first_unplausible;
-                       in_tractogram_for_extract_unplausible;
+                       in_tractogram_for_unplausible;
                        in_tractogram_for_transformation;
                        in_tractogram_for_mix}
 
@@ -139,7 +138,7 @@ process Transform_TRK {
     set sid, file(transfo), file(trk) from trk_and_template_for_transformation
 
     output:
-    set sid, "${sid}_*_transformed.trk" into transformed_for_remove_out_not_JHU
+    set sid, "${sid}_*_transformed.trk" into transformed_for_remove_out_not_JHU, transformed_for_unplausible
 
     script:
     """
@@ -152,6 +151,10 @@ process Transform_TRK {
 for_remove_invalid_streamlines = Channel.empty()
 if (t1s_empty.count().get()==0){
   for_remove_invalid_streamlines = for_remove_invalid_streamlines.mix(in_tractogram_for_mix)
+  in_tractogram_for_unplausible.into{trk_for_extract_first_unplausible; trk_for_extract_unplausible}
+}
+else{
+  transformed_for_unplausible.into{trk_for_extract_first_unplausible; trk_for_extract_unplausible}
 }
 
 process Remove_invalid_streamlines {
@@ -290,7 +293,7 @@ process remove_ee_CC_DWM {
   """
 }
 
-in_tractogram_for_extract_first_unplausible.join(wb_for_extract_first_unplausible).set{unplausible_streamlines}
+trk_for_extract_first_unplausible.join(wb_for_extract_first_unplausible).set{unplausible_streamlines}
 process extract_first_unplausible{
   cpus 1
 
@@ -1703,7 +1706,7 @@ process merge_trk_plausible{
   """
 }
 
-in_tractogram_for_extract_unplausible.join(plausible_for_extract_unplausible).set{for_trk_unplausible}
+trk_for_extract_unplausible.join(plausible_for_extract_unplausible).set{for_trk_unplausible}
 
 process extract_trk_unplausible{
   cpus 1
