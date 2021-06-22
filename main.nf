@@ -90,6 +90,7 @@ process Register_T1 {
         export OMP_NUM_THREADS=1
         export OPENBLAS_NUM_THREADS=1
         export ANTS_RANDOM_SEED=1234
+
         antsBrainExtraction.sh -d 3 -a $t1 -e $params.template_t1/t1_template.nii.gz\
             -o bet/ -m $params.template_t1/t1_brain_probability_map.nii.gz -u 0
         scil_image_math.py convert bet/BrainExtractionMask.nii.gz ${sid}__t1_bet_mask.nii.gz --data_type uint8
@@ -101,6 +102,11 @@ process Register_T1 {
     }
     else{
     """
+        export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=$task.cpus
+        export OMP_NUM_THREADS=1
+        export OPENBLAS_NUM_THREADS=1
+        export ANTS_RANDOM_SEED=1234
+
         antsRegistrationSyN.sh -d 3 -m ${t1} -f ${params.rois_folder}${params.atlas.template} -n ${params.processes} -o "${sid}__output" -t a
         mv ${sid}__outputWarped.nii.gz ${sid}__t1_transformed.nii.gz
     """
@@ -122,6 +128,11 @@ process Transform_NII {
 
     script:
     """
+    export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=$task.cpus
+    export OMP_NUM_THREADS=1
+    export OPENBLAS_NUM_THREADS=1
+    export ANTS_RANDOM_SEED=1234
+
     antsApplyTransforms -d 3 -i $nii -r ${params.rois_folder}${params.atlas.template} -t $transfo -o ${nii.getSimpleName()}_transformed.nii.gz
     """
 }
