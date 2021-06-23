@@ -7,10 +7,13 @@ params.debug = true
 
 if(params.help) {
     usage = file("$baseDir/USAGE")
-
+    cpu_count = Runtime.runtime.availableProcessors()
     bindings = ["rois_folder":"$params.rois_folder",
                 "filtering_lists_folder": "$params.filtering_lists_folder",
-                "run_bet":"$params.run_bet"]
+                "run_bet":"$params.run_bet",
+                "cpu_count":"$cpu_count",
+                "processes_bet_register_t1":"$params.processes_bet_register_t1",
+                "processes_apply_registration":"$params.processes_apply_registration"]
 
     engine = new groovy.text.SimpleTemplateEngine()
     template = engine.createTemplate(usage.text).make(bindings)
@@ -72,7 +75,7 @@ Channel.from(sides).into{sides_ipsi;
 /* BEGINNING TRANSFO */
 
 process Register_T1 {
-    cpus params.processes
+    cpus params.processes_bet_register_t1
 
     input:
     set sid, file(t1) from t1s_for_register
@@ -96,7 +99,7 @@ process Register_T1 {
         scil_image_math.py convert bet/BrainExtractionMask.nii.gz ${sid}__t1_bet_mask.nii.gz --data_type uint8
         scil_image_math.py multiplication $t1 ${sid}__t1_bet_mask.nii.gz ${sid}__t1_bet.nii.gz
 
-        antsRegistrationSyN.sh -d 3 -m ${sid}__t1_bet.nii.gz -f ${params.rois_folder}${params.atlas.template} -n ${params.processes} -o "${sid}__output" -t a
+        antsRegistrationSyN.sh -d 3 -m ${sid}__t1_bet.nii.gz -f ${params.rois_folder}${params.atlas.template} -n ${task.cpus} -o "${sid}__output" -t a
         mv ${sid}__outputWarped.nii.gz ${sid}__t1_transformed.nii.gz
     """
     }
@@ -107,7 +110,7 @@ process Register_T1 {
         export OPENBLAS_NUM_THREADS=1
         export ANTS_RANDOM_SEED=1234
 
-        antsRegistrationSyN.sh -d 3 -m ${t1} -f ${params.rois_folder}${params.atlas.template} -n ${params.processes} -o "${sid}__output" -t a
+        antsRegistrationSyN.sh -d 3 -m ${t1} -f ${params.rois_folder}${params.atlas.template} -n ${task.cpus} -o "${sid}__output" -t a
         mv ${sid}__outputWarped.nii.gz ${sid}__t1_transformed.nii.gz
     """
     }
@@ -118,7 +121,7 @@ transformation_for_t1s
     .set{nii_and_template_for_transformation}
 
 process Transform_NII {
-    cpus 1
+    cpus params.processes_apply_registration
 
     input:
     set sid, file(transfo), file(nii) from nii_and_template_for_transformation
