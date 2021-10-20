@@ -26,7 +26,7 @@ OPTIONAL ARGUMENTS (current value)
 
 
     --run_bet                           Run bet if your t1s are not brain extracted ($run_bet).
-    --debug                             Debug will output more streamline files.
+    --light                             Light version will only output most important streamlines files ($light).
 
     --processes_bet_register_t1         Number of processes for T1 brain extraction task ($processes_bet_register_t1).
     --processes_apply_registration      Number of processes for registration application ($processes_apply_registration).

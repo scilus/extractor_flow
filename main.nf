@@ -11,6 +11,7 @@ if(params.help) {
     bindings = ["rois_folder":"$params.rois_folder",
                 "filtering_lists_folder": "$params.filtering_lists_folder",
                 "run_bet":"$params.run_bet",
+                "light":"$params.light",
                 "cpu_count":"$cpu_count",
                 "processes_bet_register_t1":"$params.processes_bet_register_t1",
                 "processes_apply_registration":"$params.processes_apply_registration"]
