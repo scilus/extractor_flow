@@ -2,6 +2,8 @@ ExtractorFlow pipeline
 ======================
 
 Run ExtractorFlow pipeline
+Either your tractograms are already in the JHU template space or if you provide a t1 (diff space) it will register everything into the JHU space.
+T1s have to be BET. if not, please use the option run_bet.
 
 USAGE
 
@@ -14,10 +16,10 @@ DESCRIPTION
                                         [root]
                                         ├── S1
                                         │   └── *.trk
-                                        │   └── *_t1.nii.gz (optional)
+                                        │   └── *_t1.nii.gz (diff space, optional)
                                         └── S2
                                             └── *.trk
-                                            └── *_t1.nii.gz (optional)
+                                            └── *_t1.nii.gz (diff space, optional)
 
     --output_dir                        Directory where to write the final results.
                                         By default, will be in "./results_extractorflow"
