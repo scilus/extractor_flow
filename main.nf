@@ -184,7 +184,7 @@ process Remove_out_not_JHU {
     out_extension='wb_in_JHU'
     remaining_extension='wb_out_JHU'
     basename="${sid}"
-    keep="!${params.light}"
+    keep="$params.light"
 
     template "filter_with_atlas.sh"
 }
@@ -208,7 +208,7 @@ process Remove_crossing_Gyri {
    out_extension='wb_rm_crossing_gyri'
    remaining_extension='wb_crossing_gyri'
    basename="${sid}"
-   keep="!${params.light}"
+   keep="$params.light"
 
    template "filter_with_atlas.sh"
 }
@@ -505,7 +505,7 @@ process remove_out_of_CGM_DWM {
     out_extension='wb_either_CGM_SWM'
     remaining_extension='no_CGM_SWM'
     basename="${sid}"
-    keep="!${params.light}"
+    keep="$params.light"
 
     template "filter_with_atlas.sh"
 }
@@ -856,7 +856,7 @@ process Remove_Unplausible_Long_Range_Asso {
   out_extension="asso_all_intra_inter_${side}"
   remaining_extension="asso_lost2_${side}"
   basename="${sid}"
-  keep="!${params.light}"
+  keep="$params.light"
 
   template "filter_with_atlas.sh"
 }
@@ -1063,7 +1063,7 @@ process asso_ventral_f_o_f_p {
     out_extension="asso_F_${asso_list}_${side}"
     remaining_extension="asso_lost_${asso_list}_${side}"
     basename="${sid}"
-    keep="!${params.light}"
+    keep="$params.light"
 
     template "filter_with_list.sh"
 }
@@ -1720,11 +1720,11 @@ process merge_trk_plausible{
     set sid, file(tractogram) from merge_trk_plausible
 
   output:
-    set sid, "${sid}__plausible.trk" into plausible_for_extract_unplausible
+    set sid, "${sid}__plausible_mni_space.trk" into plausible_for_extract_unplausible
 
   script:
   """
-    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__plausible.trk -f
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__plausible_mni_space.trk -f
   """
 }
 
