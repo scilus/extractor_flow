@@ -41,7 +41,7 @@ if (params.input){
     .fromPath("$root/**/*_t1.nii.gz",
               maxDepth:1)
              .map{[it.parent.name, it]}
-             .into{t1s_for_register; t1s_for_transformation; check_t1s; t1s_empty}
+             .into{t1s_for_register; check_t1s; t1s_empty}
 
 
 }
@@ -82,7 +82,7 @@ process Register_T1 {
     set sid, file(t1) from t1s_for_register
 
     output:
-    set sid, "${sid}__output0GenericAffine.mat" into transformation_for_t1s, transformation_for_trk
+    set sid, "${sid}__output0GenericAffine.mat" into transformation_for_trk, transformation_for_trk_reverse
     file "${sid}__t1_transformed.nii.gz"
     file "${sid}__t1_bet_mask.nii.gz" optional true
     file "${sid}__t1_bet.nii.gz" optional true
@@ -115,30 +115,6 @@ process Register_T1 {
         mv ${sid}__outputWarped.nii.gz ${sid}__t1_transformed.nii.gz
     """
     }
-}
-transformation_for_t1s
-    .cross(t1s_for_transformation)
-    .map { [ it[0][0], it[0][1], it[1][1] ] }
-    .set{nii_and_template_for_transformation}
-
-process Transform_NII {
-    cpus params.processes_apply_registration
-
-    input:
-    set sid, file(transfo), file(nii) from nii_and_template_for_transformation
-
-    output:
-    file "*_transformed.nii.gz"
-
-    script:
-    """
-    export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=$task.cpus
-    export OMP_NUM_THREADS=1
-    export OPENBLAS_NUM_THREADS=1
-    export ANTS_RANDOM_SEED=1234
-
-    antsApplyTransforms -d 3 -i $nii -r ${params.rois_folder}${params.atlas.template} -t $transfo -o ${nii.getSimpleName()}_transformed.nii.gz
-    """
 }
 
 transformation_for_trk
@@ -208,6 +184,7 @@ process Remove_out_not_JHU {
     out_extension='wb_in_JHU'
     remaining_extension='wb_out_JHU'
     basename="${sid}"
+    keep="!${params.light}"
 
     template "filter_with_atlas.sh"
 }
@@ -231,6 +208,7 @@ process Remove_crossing_Gyri {
    out_extension='wb_rm_crossing_gyri'
    remaining_extension='wb_crossing_gyri'
    basename="${sid}"
+   keep="!${params.light}"
 
    template "filter_with_atlas.sh"
 }
@@ -256,7 +234,7 @@ process Pruning {
     scil_filter_streamlines_by_length.py ${tractogram} --minL ${params.min_streaminline_lenght} \
                                          --maxL ${params.max_streaminline_lenght} ${sid}__wb_min${params.min_streaminline_lenght}.trk \
                                          -f --display_counts > ${sid}__wb_min${params.min_streaminline_lenght}.txt
-    if ${params.debug}
+    if !($params.light)
     then
       scil_streamlines_math.py difference ${tractogram} ${sid}__wb_min${params.min_streaminline_lenght}.trk ${sid}__wb_max${params.min_streaminline_lenght}.trk -f
     fi
@@ -275,13 +253,21 @@ process remove_loops {
     file "${sid}__wb_min20_noloop.txt" optional true
 
   script:
-
     """
+    if ($params.light)
+    then
     scil_detect_streamlines_loops.py ${wb_min20} ${sid}__wb_min20_noloop.trk \
                                      -a ${params.loop_angle_threshold}  \
                                      --looping_tractogram ${sid}__wb_loops.trk \
                                      --display_counts > ${sid}__wb_min20_noloop.txt \
-                                     -f
+                                     -f;
+    else
+    scil_detect_streamlines_loops.py ${wb_min20} ${sid}__wb_min20_noloop.trk \
+                                     -a ${params.loop_angle_threshold}  \
+                                     --looping_tractogram ${sid}__wb_loops.trk \
+                                     --display_counts > ${sid}__wb_min20_noloop.txt \
+                                    -f
+    fi
     """
 }
 
@@ -293,7 +279,7 @@ process remove_ee_CC_DWM {
 
   output:
     set sid, "${sid}__wb_clean01.trk" into wb_for_extract_end_in_cerebellum, wb_for_extract_first_unplausible
-    set sid, "${sid}__wb_no_In_CC_DWM.trk"
+    set sid, "${sid}__wb_no_In_CC_DWM.trk" optional true
     file "${sid}__wb_clean01.txt" optional true
     file "${sid}__wb_no_In_CC_DWM.txt" optional true
 
@@ -303,8 +289,12 @@ process remove_ee_CC_DWM {
                     --drawn_roi ${params.rois_folder}${params.atlas.cc} either_end exclude \
                     --drawn_roi ${params.rois_folder}${params.atlas.dwm} either_end exclude \
                     -f --display_count > ${sid}__wb_clean01.txt
+
+  if !($params.light)
+  then
   scil_streamlines_math.py difference ${wb_min20_noloop} ${sid}__wb_clean01.trk ${sid}__wb_no_In_CC_DWM.trk -f
   scil_count_streamlines.py ${sid}__wb_no_In_CC_DWM.trk > ${sid}__wb_no_In_CC_DWM.txt
+  fi
   """
 }
 
@@ -365,6 +355,7 @@ process extract_ee_cerebellum {
   out_extension='wb_clean01_nocereb'
   remaining_extension='all_cerebellum'
   basename="${sid}"
+  keep=true
 
   template "filter_with_atlas.sh"
 }
@@ -392,7 +383,11 @@ process extract_plausible_cerebellum {
   scil_filter_tractogram.py ${tractogram} ${sid}__all_in_cerebellum_in_Midbrain.trk --filtering_list /filtering_lists/list_cerebellum/cerebellum_in_midbrain_filtering_list.txt -f
   scil_filter_tractogram.py ${tractogram} ${sid}__all_in_cerebellum_in_redN_and_Thal.trk --filtering_list /filtering_lists/list_cerebellum/cerebellum_in_rednucleus_and_thalamus_filtering_list.txt -f
   scil_streamlines_math.py concatenate ${sid}__all_in_*.trk ${sid}__all_cerebellum_plausibles.trk -f
+
+  if !${params.light}
+  then
   scil_streamlines_math.py difference ${sid}__all_cerebellum.trk ${sid}__all_cerebellum_plausibles.trk ${sid}__all_cerebellum_unplausibles.trk -f
+  fi
   """
 }
 
@@ -420,6 +415,7 @@ process extract_ee_brainstem {
     out_extension='wb_clean02'
     remaining_extension='all_brainstem'
     basename="${sid}"
+    keep=true
 
     template "filter_with_atlas.sh"
 }
@@ -435,7 +431,7 @@ process extract_plausible_brainstem {
     set sid, file(tractogram) from all_brainstem_for_extract_plausible
   output:
     set sid, "${sid}__all_brainstem_plausibles.trk" into brainstem_for_trk_plausible, brainstem_for_rename
-    file "${sid}__all_brainstem_unplausibles.trk"
+    file "${sid}__all_brainstem_unplausibles.trk" optional true
     file "${sid}__be_midbrain.trk"
     file "${sid}__be_medulla.trk"
     file "${sid}__be_pons.trk"
@@ -478,7 +474,11 @@ process extract_plausible_brainstem {
   rm -f ${sid}__*tmp_*.trk
 
   scil_streamlines_math.py concatenate ${sid}__be_*.trk ${sid}__ee_*.trk ${sid}__all_brainstem_plausibles.trk -f
+
+  if !${params.light}
+  then
   scil_streamlines_math.py difference ${sid}__all_brainstem.trk ${sid}__all_brainstem_plausibles.trk ${sid}__all_brainstem_unplausibles.trk -f
+  fi
   """
 }
 
@@ -494,7 +494,7 @@ process remove_out_of_CGM_DWM {
 
   output:
     set sid, "${sid}__wb_either_CGM_SWM.trk" into wb_for_extract_all_commissural
-    set sid, "${sid}__no_CGM_SWM.trk" into endNotInCGMSWI
+    set sid, "${sid}__no_CGM_SWM.trk" optional true
     file "${sid}__wb_either_CGM_SWM.txt" optional true
     file "${sid}__no_CGM_SWM.txt" optional true
 
@@ -505,6 +505,7 @@ process remove_out_of_CGM_DWM {
     out_extension='wb_either_CGM_SWM'
     remaining_extension='no_CGM_SWM'
     basename="${sid}"
+    keep="!${params.light}"
 
     template "filter_with_atlas.sh"
 }
@@ -528,6 +529,7 @@ process extract_all_commissural {
   out_extension="wb_either_CGM_SWM_noCC"
   remaining_extension='tmp_CC'
   basename="${sid}"
+  keep=true
 
   template "filter_with_atlas.sh"
 }
@@ -550,6 +552,7 @@ process split_CC_BG {
   out_extension="contra_BG_" + "${side}"
   remaining_extension="notUsed"
   basename="${sid}"
+  keep=true
 
   template "filter_with_atlas.sh"
 }
@@ -576,7 +579,7 @@ process first_cc_cleaning {
     --drawn_roi ${params.rois_folder}${params.atlas.midline} either_end exclude \
     --drawn_roi ${params.rois_folder}${params.atlas.allL} both_ends exclude \
     --drawn_roi ${params.rois_folder}${params.atlas.allR} both_ends exclude -f;
-  if ${params.debug}
+  if !${params.light}
   then
     scil_streamlines_math.py difference ${tractogram} ${sid}__CC_Cx.trk ${sid}__CC_lost.trk # -CC_BG
     scil_count_streamlines.py ${sid}__CC_lost.trk > ${sid}__CC_lost.txt
@@ -608,6 +611,7 @@ process Split_no_CC_Asso_and_BG {
   out_extension="all_subcortical_from_CGM_SWM_noCC_f"
   remaining_extension='asso_noBG'
   basename="${sid}"
+  keep=true
 
   template "filter_with_atlas.sh"
 }
@@ -770,6 +774,7 @@ process split_asso_in_hemi {
   out_extension="asso_${side}"
   remaining_extension="asso_${side}_lost"
   basename="${sid}"
+  keep=true
 
   template "filter_with_atlas.sh"
 }
@@ -819,7 +824,7 @@ process split_ushape_CGM_asso {
 
     scil_streamlines_math.py concatenate ${sid}__asso_DWM_${side}.trk ${sid}__asso_SWM_${side}.trk ${sid}__asso_f_${side}.trk -f
 
-    if ${params.debug}
+    if !${params.light}
     then
       scil_count_streamlines.py ${sid}__asso_only_in_CGM_${side}.trk > ${sid}__asso_only_in_CGM_${side}.txt
       scil_count_streamlines.py ${sid}__asso_Ushape_${side}.trk > ${sid}__asso_Ushape_${side}.txt
@@ -840,7 +845,7 @@ process Remove_Unplausible_Long_Range_Asso {
 
   output:
     set sid, val(side), "${sid}__asso_all_intra_inter_${side}.trk" into asso_all_intra_inter
-    set sid, "${sid}__asso_lost2_${side}.trk"
+    set sid, "${sid}__asso_lost2_${side}.trk" optional true
     file "${sid}__asso_all_intra_inter_${side}.txt" optional true
     file "${sid}__asso_lost2_${side}.txt" optional true
 
@@ -851,6 +856,7 @@ process Remove_Unplausible_Long_Range_Asso {
   out_extension="asso_all_intra_inter_${side}"
   remaining_extension="asso_lost2_${side}"
   basename="${sid}"
+  keep="!${params.light}"
 
   template "filter_with_atlas.sh"
 }
@@ -1057,6 +1063,7 @@ process asso_ventral_f_o_f_p {
     out_extension="asso_F_${asso_list}_${side}"
     remaining_extension="asso_lost_${asso_list}_${side}"
     basename="${sid}"
+    keep="!${params.light}"
 
     template "filter_with_list.sh"
 }
