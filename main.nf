@@ -76,6 +76,7 @@ Channel.from(sides).into{sides_ipsi;
 /* BEGINNING TRANSFO */
 
 process Register_T1 {
+    publishDir = params.final_output_publish_dir
     cpus params.processes_bet_register_t1
 
     input:
@@ -83,7 +84,7 @@ process Register_T1 {
 
     output:
     set sid, "${sid}__output0GenericAffine.mat" into transformation_for_trk, transformation_for_trk_reverse
-    file "${sid}__t1_transformed.nii.gz"
+    file "${sid}__t1_${params.template_space}.nii.gz"
     file "${sid}__t1_bet_mask.nii.gz" optional true
     file "${sid}__t1_bet.nii.gz" optional true
 
@@ -101,7 +102,7 @@ process Register_T1 {
         scil_image_math.py multiplication $t1 ${sid}__t1_bet_mask.nii.gz ${sid}__t1_bet.nii.gz
 
         antsRegistrationSyN.sh -d 3 -m ${sid}__t1_bet.nii.gz -f ${params.rois_folder}${params.atlas.template} -n ${task.cpus} -o "${sid}__output" -t a
-        mv ${sid}__outputWarped.nii.gz ${sid}__t1_transformed.nii.gz
+        mv ${sid}__outputWarped.nii.gz ${sid}__t1_${params.template_space}.nii.gz
     """
     }
     else{
@@ -112,7 +113,7 @@ process Register_T1 {
         export ANTS_RANDOM_SEED=1234
 
         antsRegistrationSyN.sh -d 3 -m ${t1} -f ${params.rois_folder}${params.atlas.template} -n ${task.cpus} -o "${sid}__output" -t a
-        mv ${sid}__outputWarped.nii.gz ${sid}__t1_transformed.nii.gz
+        mv ${sid}__outputWarped.nii.gz ${sid}__t1_${params.template_space}.nii.gz
     """
     }
 }
@@ -123,17 +124,18 @@ transformation_for_trk
     .set{trk_and_template_for_transformation}
 
 process Transform_TRK {
+    publishDir = params.final_output_publish_dir
     cpus 1
 
     input:
     set sid, file(transfo), file(trk) from trk_and_template_for_transformation
 
     output:
-    set sid, "${sid}_*_transformed.trk" into transformed_for_remove_out_not_JHU, transformed_for_unplausible
+    set sid, "${sid}_*_${params.template_space}.trk" into transformed_for_remove_out_not_JHU, transformed_for_unplausible
 
     script:
     """
-    scil_apply_transform_to_tractogram.py $trk ${params.rois_folder}${params.atlas.template} ${transfo} ${trk.getSimpleName()}_transformed.trk --remove_invalid --inverse
+    scil_apply_transform_to_tractogram.py $trk ${params.rois_folder}${params.atlas.template} ${transfo} ${trk.getSimpleName()}_${params.template_space}.trk --remove_invalid --inverse
     """
 }
 
@@ -184,7 +186,7 @@ process Remove_out_not_JHU {
     out_extension='wb_in_JHU'
     remaining_extension='wb_out_JHU'
     basename="${sid}"
-    keep="$params.light"
+    light_process="$params.light"
 
     template "filter_with_atlas.sh"
 }
@@ -208,7 +210,7 @@ process Remove_crossing_Gyri {
    out_extension='wb_rm_crossing_gyri'
    remaining_extension='wb_crossing_gyri'
    basename="${sid}"
-   keep="$params.light"
+   light_process="$params.light"
 
    template "filter_with_atlas.sh"
 }
@@ -355,7 +357,7 @@ process extract_ee_cerebellum {
   out_extension='wb_clean01_nocereb'
   remaining_extension='all_cerebellum'
   basename="${sid}"
-  keep=true
+  light_process=false
 
   template "filter_with_atlas.sh"
 }
@@ -415,7 +417,7 @@ process extract_ee_brainstem {
     out_extension='wb_clean02'
     remaining_extension='all_brainstem'
     basename="${sid}"
-    keep=true
+    light_process=false
 
     template "filter_with_atlas.sh"
 }
@@ -505,7 +507,7 @@ process remove_out_of_CGM_DWM {
     out_extension='wb_either_CGM_SWM'
     remaining_extension='no_CGM_SWM'
     basename="${sid}"
-    keep="$params.light"
+    light_process="$params.light"
 
     template "filter_with_atlas.sh"
 }
@@ -529,7 +531,7 @@ process extract_all_commissural {
   out_extension="wb_either_CGM_SWM_noCC"
   remaining_extension='tmp_CC'
   basename="${sid}"
-  keep=true
+  light_process=false
 
   template "filter_with_atlas.sh"
 }
@@ -552,7 +554,7 @@ process split_CC_BG {
   out_extension="contra_BG_" + "${side}"
   remaining_extension="notUsed"
   basename="${sid}"
-  keep=true
+  light_process=false
 
   template "filter_with_atlas.sh"
 }
@@ -611,7 +613,7 @@ process Split_no_CC_Asso_and_BG {
   out_extension="all_subcortical_from_CGM_SWM_noCC_f"
   remaining_extension='asso_noBG'
   basename="${sid}"
-  keep=true
+  light_process=false
 
   template "filter_with_atlas.sh"
 }
@@ -774,7 +776,7 @@ process split_asso_in_hemi {
   out_extension="asso_${side}"
   remaining_extension="asso_${side}_lost"
   basename="${sid}"
-  keep=true
+  light_process=false
 
   template "filter_with_atlas.sh"
 }
@@ -856,7 +858,7 @@ process Remove_Unplausible_Long_Range_Asso {
   out_extension="asso_all_intra_inter_${side}"
   remaining_extension="asso_lost2_${side}"
   basename="${sid}"
-  keep="$params.light"
+  light_process="$params.light"
 
   template "filter_with_atlas.sh"
 }
@@ -1063,7 +1065,7 @@ process asso_ventral_f_o_f_p {
     out_extension="asso_F_${asso_list}_${side}"
     remaining_extension="asso_lost_${asso_list}_${side}"
     basename="${sid}"
-    keep="$params.light"
+    light_process="$params.light"
 
     template "filter_with_list.sh"
 }
@@ -1714,33 +1716,38 @@ process merge_asso_ee_temporal_gyrus{
 fornix_for_trk_plausible.concat(cerebellum_for_trk_plausible,brainstem_for_trk_plausible,BG_ipsi_Thal_for_trk_plausible,BG_ipsi_Put_for_trk_plausible,BG_ipsi_Caud_for_trk_plausible,asso_u_shape_for_trk_plausible,CC_homo_for_trk_plausible,asso_all_dorsal_for_trk_plausible,asso_all_ventral_for_trk_plausible,all_P_O_for_trk_plausible,all_P_T_for_trk_plausible,all_O_T_for_trk_plausible,Ins_for_trk_plausible,Cing_for_trk_plausible,asso_all_intraF_be_for_trk_plausible,asso_all_intraF_ee_for_trk_plausible,asso_all_intraP_be_for_trk_plausible,asso_all_intraP_ee_for_trk_plausible,asso_all_intraO_be_for_trk_plausible,asso_all_intraO_ee_for_trk_plausible,asso_all_intraT_be_for_trk_plausible,asso_all_intraT_ee_for_trk_plausible).groupTuple(by: 0).set{merge_trk_plausible}
 
 process merge_trk_plausible{
+  publishDir = params.final_output_publish_dir
   cpus 1
 
   input:
     set sid, file(tractogram) from merge_trk_plausible
 
   output:
-    set sid, "${sid}__plausible_mni_space.trk" into plausible_for_extract_unplausible
+    set sid, "${sid}__plausible_${params.template_space}.trk" into plausible_for_extract_unplausible
 
   script:
   """
-    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__plausible_mni_space.trk -f
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__plausible_${params.template_space}.trk -f
   """
 }
 
 trk_for_extract_unplausible.join(plausible_for_extract_unplausible).set{for_trk_unplausible}
 
 process extract_trk_unplausible{
+  publishDir = params.final_output_publish_dir
   cpus 1
 
   input:
     set sid, file(trk01), file(trk02) from for_trk_unplausible
   output:
-    set sid, "${sid}__unplausible.trk"
+    set sid, "${sid}__unplausible_${params.template_space}.trk"
+
+  when:
+    !params.light
 
   script:
   """
-    scil_streamlines_math.py difference ${trk01} ${trk02} ${sid}__unplausible.trk -f
+    scil_streamlines_math.py difference ${trk01} ${trk02} ${sid}__unplausible_${params.template_space}.trk -f
   """
 }
 
@@ -1748,6 +1755,7 @@ process extract_trk_unplausible{
 RENAME CC CC_Homotopic
 */
 process rename_cc_homotopic {
+  publishDir = params.final_output_publish_dir
   cpus 1
 
   input:
@@ -1758,21 +1766,24 @@ process rename_cc_homotopic {
     set sid, val(list), file(trk05) from CC_Homotopic_insular_for_rename
     set sid, val(list), file(trk06) from CC_Homotopic_cingulum_for_rename
   output:
-    set sid, "${sid}__cc_homotopic_frontal.trk"
-    set sid, "${sid}__cc_homotopic_occipital.trk"
-    set sid, "${sid}__cc_homotopic_temporal.trk"
-    set sid, "${sid}__cc_homotopic_parietal.trk"
-    set sid, "${sid}__cc_homotopic_insular.trk"
-    set sid, "${sid}__cc_homotopic_cingulum.trk"
+    set sid, "${sid}__cc_homotopic_frontal_${params.template_space}.trk"
+    set sid, "${sid}__cc_homotopic_occipital_${params.template_space}.trk"
+    set sid, "${sid}__cc_homotopic_temporal_${params.template_space}.trk"
+    set sid, "${sid}__cc_homotopic_parietal_${params.template_space}.trk"
+    set sid, "${sid}__cc_homotopic_insular_${params.template_space}.trk"
+    set sid, "${sid}__cc_homotopic_cingulum_${params.template_space}.trk"
+
+  when:
+    !params.light
 
   script:
   """
-  scil_streamlines_math.py lazy_concatenate ${trk01} "${sid}__cc_homotopic_frontal.trk" -f
-  scil_streamlines_math.py lazy_concatenate ${trk02} "${sid}__cc_homotopic_occipital.trk" -f
-  scil_streamlines_math.py lazy_concatenate ${trk03} "${sid}__cc_homotopic_temporal.trk" -f
-  scil_streamlines_math.py lazy_concatenate ${trk04} "${sid}__cc_homotopic_parietal.trk" -f
-  cp ${trk05} ${sid}__cc_homotopic_insular.trk -f
-  cp ${trk06} ${sid}__cc_homotopic_cingulum.trk -f
+  scil_streamlines_math.py lazy_concatenate ${trk01} "${sid}__cc_homotopic_frontal_${params.template_space}.trk" -f
+  scil_streamlines_math.py lazy_concatenate ${trk02} "${sid}__cc_homotopic_occipital_${params.template_space}.trk" -f
+  scil_streamlines_math.py lazy_concatenate ${trk03} "${sid}__cc_homotopic_temporal_${params.template_space}.trk" -f
+  scil_streamlines_math.py lazy_concatenate ${trk04} "${sid}__cc_homotopic_parietal_${params.template_space}.trk" -f
+  cp ${trk05} ${sid}__cc_homotopic_insular_${params.template_space}.trk -f
+  cp ${trk06} ${sid}__cc_homotopic_cingulum_${params.template_space}.trk -f
   """
 }
 
@@ -1781,17 +1792,21 @@ RENAME CORTICO_STRIATE
 */
 BG_ipsi_Caud_for_rename.concat(BG_ipsi_Put_for_rename).groupTuple(by:[0,1]).set{cortico_striate_for_rename}
 process rename_cortico_striate {
+  publishDir = params.final_output_publish_dir
   cpus 1
 
   input:
     set sid, val(side), file(tractogram) from cortico_striate_for_rename
 
   output:
-    set sid, "${sid}__corticostriatal_${side}.trk"
+    set sid, "${sid}__corticostriatal_${side}_${params.template_space}.trk"
+
+  when:
+    !params.light
 
   script:
   """
-    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__corticostriatal_${side}.trk -f
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__corticostriatal_${side}_${params.template_space}.trk -f
   """
 }
 
@@ -1799,17 +1814,21 @@ process rename_cortico_striate {
 RENAME Corona radiata
 */
 process rename_coronaradiata {
+  publishDir = params.final_output_publish_dir
   cpus 1
 
   input:
     set sid, val(side), file(tractogram) from BG_ipsi_Thal_for_rename
 
   output:
-    set sid, val(side), "${sid}__coronaradiata_${side}.trk"
+    set sid, val(side), "${sid}__coronaradiata_${side}_${params.template_space}.trk"
+
+  when:
+    !params.light
 
   script:
   """
-    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__coronaradiata_${side}.trk -f
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__coronaradiata_${side}_${params.template_space}.trk -f
   """
 }
 
@@ -1817,17 +1836,21 @@ process rename_coronaradiata {
 RENAME OPTICAL RADIATION
 */
 process rename_optical_radiation {
+  publishDir = params.final_output_publish_dir
   cpus 1
 
   input:
     set sid, val(side), val(list), file(tractogram) from optic_radiation_for_rename
 
   output:
-    set sid, "${sid}__optical_radiation_${side}.trk"
+    set sid, "${sid}__optical_radiation_${side}_${params.template_space}.trk"
+
+  when:
+    !params.light
 
   script:
   """
-    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__optical_radiation_${side}.trk -f
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__optical_radiation_${side}_${params.template_space}.trk -f
   """
 }
 
@@ -1835,17 +1858,21 @@ process rename_optical_radiation {
 RENAME U SHAPE
 */
 process rename_ushape {
+  publishDir = params.final_output_publish_dir
   cpus 1
 
   input:
     set sid, val(side), file(tractogram) from asso_u_shape_for_rename
 
   output:
-    set sid, "${sid}__ushape_${side}.trk"
+    set sid, "${sid}__ushape_${side}_${params.template_space}.trk"
+
+  when:
+    !params.light
 
   script:
   """
-    cp ${tractogram} ${sid}__ushape_${side}.trk
+    cp ${tractogram} ${sid}__ushape_${side}_${params.template_space}.trk
   """
 }
 
@@ -1853,17 +1880,21 @@ process rename_ushape {
 RENAME CING
 */
 process rename_cing {
+  publishDir = params.final_output_publish_dir
   cpus 1
 
   input:
     set sid, val(side), file(tractogram) from Cing_for_rename
 
   output:
-    set sid, "${sid}__cing_${side}.trk"
+    set sid, "${sid}__cing_${side}_${params.template_space}.trk"
+
+  when:
+    !params.light
 
   script:
   """
-    cp ${tractogram} ${sid}__cing_${side}.trk
+    cp ${tractogram} ${sid}__cing_${side}_${params.template_space}.trk
   """
 }
 
@@ -1872,17 +1903,21 @@ RENAME SLF
 */
 asso_all_intra_inter_dorsal_all_f_O_for_rename.concat(asso_all_intra_inter_dorsal_f_p_for_rename).groupTuple(by:[0,1]).set{slf_for_rename}
 process rename_slf {
+  publishDir = params.final_output_publish_dir
   cpus 1
 
   input:
     set sid, val(side), val(list), file(tractogram) from slf_for_rename
 
   output:
-    set sid, "${sid}__slf_${side}.trk"
+    set sid, "${sid}__slf_${side}_${params.template_space}.trk"
+
+  when:
+    !params.light
 
   script:
   """
-    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__slf_${side}.trk -f
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__slf_${side}_${params.template_space}.trk -f
   """
 }
 
@@ -1890,17 +1925,21 @@ process rename_slf {
 RENAME AF
 */
 process rename_af {
+  publishDir = params.final_output_publish_dir
   cpus 1
 
   input:
     set sid, val(side), asso_list, file(tractogram) from asso_all_intra_inter_dorsal_all_f_T_for_rename
 
   output:
-    set sid, "${sid}__af_${side}.trk"
+    set sid, "${sid}__af_${side}_${params.template_space}.trk"
+
+  when:
+    !params.light
 
   script:
   """
-    cp ${tractogram} ${sid}__af_${side}.trk -f
+    cp ${tractogram} ${sid}__af_${side}_${params.template_space}.trk -f
   """
 }
 
@@ -1908,23 +1947,28 @@ process rename_af {
 RENAME Cortico-pontine_F
 */
 process rename_corticopontine_F {
+  publishDir = params.final_output_publish_dir
   cpus 1
 
   input:
     set sid, file(tractogram) from brainstem_corticopontine_frontal_for_rename
     each side from side_corticopontineF
   output:
-    set sid, "${sid}__corticopontine_frontal_${side}.trk"
+    set sid, "${sid}__corticopontine_frontal_${side}_${params.template_space}.trk"
+
+  when:
+    !params.light
 
   script:
   """
-  scil_filter_tractogram.py ${tractogram} ${sid}__corticopontine_frontal_${side}.trk --drawn_roi ${params.rois_folder}${params.atlas.frontal_side}${side}.nii.gz either_end include -f
+  scil_filter_tractogram.py ${tractogram} ${sid}__corticopontine_frontal_${side}_${params.template_space}.trk --drawn_roi ${params.rois_folder}${params.atlas.frontal_side}${side}.nii.gz either_end include -f
   """
 }
 /*
 RENAME cortico-pontine_POT
 */
 process rename_corticopontine_POT {
+  publishDir = params.final_output_publish_dir
   cpus 1
 
   input:
@@ -1932,11 +1976,14 @@ process rename_corticopontine_POT {
     each side from side_corticopontinePOT
 
   output:
-    set sid, "${sid}__corticopontine_POT_${side}.trk"
+    set sid, "${sid}__corticopontine_POT_${side}_${params.template_space}.trk"
+
+  when:
+    !params.light
 
   script:
   """
-    scil_filter_tractogram.py ${tractogram} ${sid}__corticopontine_POT_${side}.trk --drawn_roi ${params.rois_folder}${params.atlas.parieto_temporo_occipital_side}${side}.nii.gz either_end include -f
+    scil_filter_tractogram.py ${tractogram} ${sid}__corticopontine_POT_${side}_${params.template_space}.trk --drawn_roi ${params.rois_folder}${params.atlas.parieto_temporo_occipital_side}${side}.nii.gz either_end include -f
   """
 }
 
@@ -1944,6 +1991,7 @@ process rename_corticopontine_POT {
 RENAME Pyramidal tract (CST)
 */
 process rename_cst {
+  publishDir = params.final_output_publish_dir
   cpus 1
 
   input:
@@ -1951,11 +1999,14 @@ process rename_cst {
     each side from side_cst
 
   output:
-    set sid, "${sid}__cst_${side}.trk"
+    set sid, "${sid}__cst_${side}_${params.template_space}.trk"
+
+  when:
+    !params.light
 
   script:
   """
-    scil_filter_tractogram.py ${tractogram} ${sid}__cst_${side}.trk --drawn_roi ${params.rois_folder}${params.atlas.fronto_parietal_side}${side}.nii.gz either_end include -f
+    scil_filter_tractogram.py ${tractogram} ${sid}__cst_${side}_${params.template_space}.trk --drawn_roi ${params.rois_folder}${params.atlas.fronto_parietal_side}${side}.nii.gz either_end include -f
   """
 }
 
@@ -1963,17 +2014,21 @@ process rename_cst {
 RENAME fornix
 */
 process rename_fornix {
+  publishDir = params.final_output_publish_dir
   cpus 1
 
   input:
     set sid, file(tractogram) from fornix_for_rename
 
   output:
-    set sid, "${sid}__fornix.trk"
+    set sid, "${sid}__fornix_${params.template_space}.trk"
+
+  when:
+    !params.light
 
   script:
   """
-    cp ${tractogram} ${sid}__fornix.trk -f
+    cp ${tractogram} ${sid}__fornix_${params.template_space}.trk -f
   """
 }
 
@@ -1981,17 +2036,21 @@ process rename_fornix {
 RENAME IFOF
 */
 process rename_ifof {
+  publishDir = params.final_output_publish_dir
   cpus 1
 
   input:
     set sid, val(side), file(tractogram) from asso_IFOF_for_rename
 
   output:
-    set sid, "${sid}__ifof_${side}.trk"
+    set sid, "${sid}__ifof_${side}_${params.template_space}.trk"
+
+  when:
+    !params.light
 
   script:
   """
-    cp ${tractogram} ${sid}__ifof_${side}.trk -f
+    cp ${tractogram} ${sid}__ifof_${side}_${params.template_space}.trk -f
   """
 }
 
@@ -1999,17 +2058,21 @@ process rename_ifof {
 RENAME UF
 */
 process rename_uf {
+  publishDir = params.final_output_publish_dir
   cpus 1
 
   input:
     set sid, val(side), file(tractogram) from asso_UF_for_rename
 
   output:
-    set sid, "${sid}__uf_${side}.trk"
+    set sid, "${sid}__uf_${side}_${params.template_space}.trk"
+
+  when:
+    !params.light
 
   script:
   """
-    cp ${tractogram} ${sid}__uf_${side}.trk -f
+    cp ${tractogram} ${sid}__uf_${side}_${params.template_space}.trk -f
   """
 }
 
@@ -2017,17 +2080,21 @@ process rename_uf {
 RENAME ILF
 */
 process rename_ilf {
+  publishDir = params.final_output_publish_dir
   cpus 1
 
   input:
     set sid, val(side), file(tractogram) from all_O_T_for_rename
 
   output:
-    set sid, "${sid}__ilf_${side}.trk"
+    set sid, "${sid}__ilf_${side}_${params.template_space}.trk"
+
+  when:
+    !params.light
 
   script:
   """
-    cp ${tractogram} ${sid}__ilf_${side}.trk -f
+    cp ${tractogram} ${sid}__ilf_${side}_${params.template_space}.trk -f
   """
 }
 
@@ -2035,17 +2102,21 @@ process rename_ilf {
 RENAME BRAINSTEM
 */
 process rename_brainstem {
+  publishDir = params.final_output_publish_dir
   cpus 1
 
   input:
     set sid, file(tractogram) from brainstem_for_rename
 
   output:
-    set sid, "${sid}__brainstem.trk"
+    set sid, "${sid}__brainstem_${params.template_space}.trk"
+
+  when:
+    !params.light
 
   script:
   """
-    cp ${tractogram} ${sid}__brainstem.trk -f
+    cp ${tractogram} ${sid}__brainstem_${params.template_space}.trk -f
   """
 }
 
@@ -2053,16 +2124,20 @@ process rename_brainstem {
 RENAME CEREBELLUM
 */
 process rename_cerebellum {
+  publishDir = params.final_output_publish_dir
   cpus 1
 
   input:
     set sid, file(tractogram) from cerebellum_for_rename
 
   output:
-    set sid, "${sid}__cerebellum.trk"
+    set sid, "${sid}__cerebellum_${params.template_space}.trk"
+
+  when:
+    !params.light
 
   script:
   """
-    cp ${tractogram} ${sid}__cerebellum.trk -f
+    cp ${tractogram} ${sid}__cerebellum_${params.template_space}.trk -f
   """
 }
