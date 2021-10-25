@@ -24,6 +24,21 @@ if(params.help) {
     return
     }
 
+log.info "Extractor_flow pipeline"
+log.info "==================="
+log.info "Start time: $workflow.start"
+log.info ""
+
+workflow.onComplete {
+    log.info "Pipeline completed at: $workflow.complete"
+    log.info "Execution status: ${ workflow.success ? 'OK' : 'failed' }"
+    log.info "Execution duration: $workflow.duration"
+}
+
+if (!params.keep_intermediate_steps) {
+  log.info "Warning: You won't be able to resume your processing if you don't use the option --keep_intermediate_steps"
+  log.info ""
+}
 
 if (params.input){
     log.info "Input: $params.input"
