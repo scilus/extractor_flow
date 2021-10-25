@@ -11,7 +11,9 @@ if(params.help) {
     bindings = ["rois_folder":"$params.rois_folder",
                 "filtering_lists_folder": "$params.filtering_lists_folder",
                 "run_bet":"$params.run_bet",
-                "light":"$params.light",
+                "orig":"$params.orig",
+                "extended":"$params.extended",
+                "keep_intermediate_steps":"$params.keep_intermediate_steps",
                 "cpu_count":"$cpu_count",
                 "processes_bet_register_t1":"$params.processes_bet_register_t1",
                 "processes_apply_registration":"$params.processes_apply_registration"]
@@ -21,6 +23,7 @@ if(params.help) {
     print template.toString()
     return
     }
+
 
 if (params.input){
     log.info "Input: $params.input"
@@ -186,7 +189,7 @@ process Remove_out_not_JHU {
     out_extension='wb_in_JHU'
     remaining_extension='wb_out_JHU'
     basename="${sid}"
-    light_process="$params.light"
+    keep="$params.keep_intermediate_steps"
 
     template "filter_with_atlas.sh"
 }
@@ -210,7 +213,7 @@ process Remove_crossing_Gyri {
    out_extension='wb_rm_crossing_gyri'
    remaining_extension='wb_crossing_gyri'
    basename="${sid}"
-   light_process="$params.light"
+   keep="$params.keep_intermediate_steps"
 
    template "filter_with_atlas.sh"
 }
@@ -236,7 +239,7 @@ process Pruning {
     scil_filter_streamlines_by_length.py ${tractogram} --minL ${params.min_streaminline_lenght} \
                                          --maxL ${params.max_streaminline_lenght} ${sid}__wb_min${params.min_streaminline_lenght}.trk \
                                          -f --display_counts > ${sid}__wb_min${params.min_streaminline_lenght}.txt
-    if !($params.light)
+    if ($params.keep_intermediate_steps)
     then
       scil_streamlines_math.py difference ${tractogram} ${sid}__wb_min${params.min_streaminline_lenght}.trk ${sid}__wb_max${params.min_streaminline_lenght}.trk -f
     fi
@@ -256,7 +259,7 @@ process remove_loops {
 
   script:
     """
-    if ($params.light)
+    if ($params.keep_intermediate_steps)
     then
     scil_detect_streamlines_loops.py ${wb_min20} ${sid}__wb_min20_noloop.trk \
                                      -a ${params.loop_angle_threshold}  \
@@ -266,12 +269,12 @@ process remove_loops {
     else
     scil_detect_streamlines_loops.py ${wb_min20} ${sid}__wb_min20_noloop.trk \
                                      -a ${params.loop_angle_threshold}  \
-                                     --looping_tractogram ${sid}__wb_loops.trk \
                                      --display_counts > ${sid}__wb_min20_noloop.txt \
                                     -f
     fi
     """
 }
+
 
 process remove_ee_CC_DWM {
   cpus 1
@@ -292,7 +295,7 @@ process remove_ee_CC_DWM {
                     --drawn_roi ${params.rois_folder}${params.atlas.dwm} either_end exclude \
                     -f --display_count > ${sid}__wb_clean01.txt
 
-  if !($params.light)
+  if ($params.keep_intermediate_steps)
   then
   scil_streamlines_math.py difference ${wb_min20_noloop} ${sid}__wb_clean01.trk ${sid}__wb_no_In_CC_DWM.trk -f
   scil_count_streamlines.py ${sid}__wb_no_In_CC_DWM.trk > ${sid}__wb_no_In_CC_DWM.txt
@@ -357,7 +360,7 @@ process extract_ee_cerebellum {
   out_extension='wb_clean01_nocereb'
   remaining_extension='all_cerebellum'
   basename="${sid}"
-  light_process=false
+  keep=true
 
   template "filter_with_atlas.sh"
 }
@@ -386,13 +389,12 @@ process extract_plausible_cerebellum {
   scil_filter_tractogram.py ${tractogram} ${sid}__all_in_cerebellum_in_redN_and_Thal.trk --filtering_list /filtering_lists/list_cerebellum/cerebellum_in_rednucleus_and_thalamus_filtering_list.txt -f
   scil_streamlines_math.py concatenate ${sid}__all_in_*.trk ${sid}__all_cerebellum_plausibles.trk -f
 
-  if !${params.light}
+  if ${params.keep_intermediate_steps}
   then
   scil_streamlines_math.py difference ${sid}__all_cerebellum.trk ${sid}__all_cerebellum_plausibles.trk ${sid}__all_cerebellum_unplausibles.trk -f
   fi
   """
 }
-
 
 /*
   END Cerebellum
@@ -417,7 +419,7 @@ process extract_ee_brainstem {
     out_extension='wb_clean02'
     remaining_extension='all_brainstem'
     basename="${sid}"
-    light_process=false
+    keep=true
 
     template "filter_with_atlas.sh"
 }
@@ -477,7 +479,7 @@ process extract_plausible_brainstem {
 
   scil_streamlines_math.py concatenate ${sid}__be_*.trk ${sid}__ee_*.trk ${sid}__all_brainstem_plausibles.trk -f
 
-  if !${params.light}
+  if ${params.keep_intermediate_steps}
   then
   scil_streamlines_math.py difference ${sid}__all_brainstem.trk ${sid}__all_brainstem_plausibles.trk ${sid}__all_brainstem_unplausibles.trk -f
   fi
@@ -507,7 +509,7 @@ process remove_out_of_CGM_DWM {
     out_extension='wb_either_CGM_SWM'
     remaining_extension='no_CGM_SWM'
     basename="${sid}"
-    light_process="$params.light"
+    keep="$params.keep_intermediate_steps"
 
     template "filter_with_atlas.sh"
 }
@@ -531,7 +533,7 @@ process extract_all_commissural {
   out_extension="wb_either_CGM_SWM_noCC"
   remaining_extension='tmp_CC'
   basename="${sid}"
-  light_process=false
+  keep=true
 
   template "filter_with_atlas.sh"
 }
@@ -554,7 +556,7 @@ process split_CC_BG {
   out_extension="contra_BG_" + "${side}"
   remaining_extension="notUsed"
   basename="${sid}"
-  light_process=false
+  keep=true
 
   template "filter_with_atlas.sh"
 }
@@ -581,7 +583,7 @@ process first_cc_cleaning {
     --drawn_roi ${params.rois_folder}${params.atlas.midline} either_end exclude \
     --drawn_roi ${params.rois_folder}${params.atlas.allL} both_ends exclude \
     --drawn_roi ${params.rois_folder}${params.atlas.allR} both_ends exclude -f;
-  if !${params.light}
+  if ${params.keep_intermediate_steps}
   then
     scil_streamlines_math.py difference ${tractogram} ${sid}__CC_Cx.trk ${sid}__CC_lost.trk # -CC_BG
     scil_count_streamlines.py ${sid}__CC_lost.trk > ${sid}__CC_lost.txt
@@ -613,7 +615,7 @@ process Split_no_CC_Asso_and_BG {
   out_extension="all_subcortical_from_CGM_SWM_noCC_f"
   remaining_extension='asso_noBG'
   basename="${sid}"
-  light_process=false
+  keep=true
 
   template "filter_with_atlas.sh"
 }
@@ -776,7 +778,7 @@ process split_asso_in_hemi {
   out_extension="asso_${side}"
   remaining_extension="asso_${side}_lost"
   basename="${sid}"
-  light_process=false
+  keep=true
 
   template "filter_with_atlas.sh"
 }
@@ -826,7 +828,7 @@ process split_ushape_CGM_asso {
 
     scil_streamlines_math.py concatenate ${sid}__asso_DWM_${side}.trk ${sid}__asso_SWM_${side}.trk ${sid}__asso_f_${side}.trk -f
 
-    if !${params.light}
+    if ${params.keep_intermediate_steps}
     then
       scil_count_streamlines.py ${sid}__asso_only_in_CGM_${side}.trk > ${sid}__asso_only_in_CGM_${side}.txt
       scil_count_streamlines.py ${sid}__asso_Ushape_${side}.trk > ${sid}__asso_Ushape_${side}.txt
@@ -858,7 +860,7 @@ process Remove_Unplausible_Long_Range_Asso {
   out_extension="asso_all_intra_inter_${side}"
   remaining_extension="asso_lost2_${side}"
   basename="${sid}"
-  light_process="$params.light"
+  keep="$params.keep_intermediate_steps"
 
   template "filter_with_atlas.sh"
 }
@@ -1065,7 +1067,7 @@ process asso_ventral_f_o_f_p {
     out_extension="asso_F_${asso_list}_${side}"
     remaining_extension="asso_lost_${asso_list}_${side}"
     basename="${sid}"
-    light_process="$params.light"
+    keep="$params.keep_intermediate_steps"
 
     template "filter_with_list.sh"
 }
@@ -1742,9 +1744,6 @@ process extract_trk_unplausible{
   output:
     set sid, "${sid}__unplausible_${params.template_space}.trk"
 
-  when:
-    !params.light
-
   script:
   """
     scil_streamlines_math.py difference ${trk01} ${trk02} ${sid}__unplausible_${params.template_space}.trk -f
@@ -1774,7 +1773,7 @@ process rename_cc_homotopic {
     set sid, "${sid}__cc_homotopic_cingulum_${params.template_space}.trk"
 
   when:
-    !params.light
+    params.extended
 
   script:
   """
@@ -1802,7 +1801,7 @@ process rename_cortico_striate {
     set sid, "${sid}__corticostriatal_${side}_${params.template_space}.trk"
 
   when:
-    !params.light
+    params.extended
 
   script:
   """
@@ -1824,7 +1823,7 @@ process rename_coronaradiata {
     set sid, val(side), "${sid}__coronaradiata_${side}_${params.template_space}.trk"
 
   when:
-    !params.light
+    params.extended
 
   script:
   """
@@ -1846,7 +1845,7 @@ process rename_optical_radiation {
     set sid, "${sid}__optical_radiation_${side}_${params.template_space}.trk"
 
   when:
-    !params.light
+    params.extended
 
   script:
   """
@@ -1868,7 +1867,7 @@ process rename_ushape {
     set sid, "${sid}__ushape_${side}_${params.template_space}.trk"
 
   when:
-    !params.light
+    params.extended
 
   script:
   """
@@ -1890,7 +1889,7 @@ process rename_cing {
     set sid, "${sid}__cing_${side}_${params.template_space}.trk"
 
   when:
-    !params.light
+    params.extended
 
   script:
   """
@@ -1913,7 +1912,7 @@ process rename_slf {
     set sid, "${sid}__slf_${side}_${params.template_space}.trk"
 
   when:
-    !params.light
+    params.extended
 
   script:
   """
@@ -1935,7 +1934,7 @@ process rename_af {
     set sid, "${sid}__af_${side}_${params.template_space}.trk"
 
   when:
-    !params.light
+    params.extended
 
   script:
   """
@@ -1957,7 +1956,7 @@ process rename_corticopontine_F {
     set sid, "${sid}__corticopontine_frontal_${side}_${params.template_space}.trk"
 
   when:
-    !params.light
+    params.extended
 
   script:
   """
@@ -1979,7 +1978,7 @@ process rename_corticopontine_POT {
     set sid, "${sid}__corticopontine_POT_${side}_${params.template_space}.trk"
 
   when:
-    !params.light
+    params.extended
 
   script:
   """
@@ -2002,7 +2001,7 @@ process rename_cst {
     set sid, "${sid}__cst_${side}_${params.template_space}.trk"
 
   when:
-    !params.light
+    params.extended
 
   script:
   """
@@ -2024,7 +2023,7 @@ process rename_fornix {
     set sid, "${sid}__fornix_${params.template_space}.trk"
 
   when:
-    !params.light
+    params.extended
 
   script:
   """
@@ -2046,7 +2045,7 @@ process rename_ifof {
     set sid, "${sid}__ifof_${side}_${params.template_space}.trk"
 
   when:
-    !params.light
+    params.extended
 
   script:
   """
@@ -2068,7 +2067,7 @@ process rename_uf {
     set sid, "${sid}__uf_${side}_${params.template_space}.trk"
 
   when:
-    !params.light
+    params.extended
 
   script:
   """
@@ -2090,7 +2089,7 @@ process rename_ilf {
     set sid, "${sid}__ilf_${side}_${params.template_space}.trk"
 
   when:
-    !params.light
+    params.extended
 
   script:
   """
@@ -2112,7 +2111,7 @@ process rename_brainstem {
     set sid, "${sid}__brainstem_${params.template_space}.trk"
 
   when:
-    !params.light
+    params.extended
 
   script:
   """
@@ -2134,7 +2133,7 @@ process rename_cerebellum {
     set sid, "${sid}__cerebellum_${params.template_space}.trk"
 
   when:
-    !params.light
+    params.extended
 
   script:
   """
