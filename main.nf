@@ -1761,7 +1761,7 @@ process extract_trk_unplausible{
 
   script:
   """
-    scil_streamlines_math.py difference ${trk01} ${trk02} ${sid}__unplausible_${params.template_space}.trk -f
+    scil_streamlines_math.py difference ${trk01} ${trk02} ${sid}__unplausible_${params.template_space}.trk --ignore_invalid -f
   """
 }
 
