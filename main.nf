@@ -59,7 +59,7 @@ if (params.input){
     .fromPath("$root/**/*_t1.nii.gz",
               maxDepth:1)
              .map{[it.parent.name, it]}
-             .into{t1s_for_register; check_t1s; t1s_empty}
+             .into{t1s_for_register; t1s_for_register_back;check_t1s; t1s_empty}
 
 
 }
@@ -94,14 +94,14 @@ Channel.from(sides).into{sides_ipsi;
 /* BEGINNING TRANSFO */
 
 process Register_T1 {
-    publishDir = params.final_output_publish_dir
+    publishDir = params.final_output_mni_space
     cpus params.processes_bet_register_t1
 
     input:
     set sid, file(t1) from t1s_for_register
 
     output:
-    set sid, "${sid}__output0GenericAffine.mat" into transformation_for_trk, transformation_for_trk_reverse
+    set sid, "${sid}__output0GenericAffine.mat" into transformation_for_trk
     file "${sid}__t1_${params.template_space}.nii.gz"
     file "${sid}__t1_bet_mask.nii.gz" optional true
     file "${sid}__t1_bet.nii.gz" optional true
@@ -136,17 +136,26 @@ process Register_T1 {
     }
 }
 
-transformation_for_trk
+transformation_for_trk.into{transformation_for_trk_registration;
+                            transformation_for_join_with_t1}
+if (params.orig) {
+    t1s_for_register_back
+        .cross(transformation_for_join_with_t1)
+        .map { [ it[0][0], it[0][1], it[1][1] ] }
+        .set{transformation_and_t1_for_transformation_to_orig}
+}
+
+transformation_for_trk_registration
     .cross(in_tractogram_for_transformation)
     .map { [ it[0][0], it[0][1], it[1][1] ] }
-    .set{trk_and_template_for_transformation}
+    .set{trk_and_template_for_transformation_to_template}
 
 process Transform_TRK {
-    publishDir = params.final_output_publish_dir
+    publishDir = params.final_output_mni_space
     cpus 1
 
     input:
-    set sid, file(transfo), file(trk) from trk_and_template_for_transformation
+    set sid, file(transfo), file(trk) from trk_and_template_for_transformation_to_template
 
     output:
     set sid, "${sid}_*_${params.template_space}.trk" into transformed_for_remove_out_not_JHU, transformed_for_unplausible
@@ -1733,14 +1742,14 @@ process merge_asso_ee_temporal_gyrus{
 fornix_for_trk_plausible.concat(cerebellum_for_trk_plausible,brainstem_for_trk_plausible,BG_ipsi_Thal_for_trk_plausible,BG_ipsi_Put_for_trk_plausible,BG_ipsi_Caud_for_trk_plausible,asso_u_shape_for_trk_plausible,CC_homo_for_trk_plausible,asso_all_dorsal_for_trk_plausible,asso_all_ventral_for_trk_plausible,all_P_O_for_trk_plausible,all_P_T_for_trk_plausible,all_O_T_for_trk_plausible,Ins_for_trk_plausible,Cing_for_trk_plausible,asso_all_intraF_be_for_trk_plausible,asso_all_intraF_ee_for_trk_plausible,asso_all_intraP_be_for_trk_plausible,asso_all_intraP_ee_for_trk_plausible,asso_all_intraO_be_for_trk_plausible,asso_all_intraO_ee_for_trk_plausible,asso_all_intraT_be_for_trk_plausible,asso_all_intraT_ee_for_trk_plausible).groupTuple(by: 0).set{merge_trk_plausible}
 
 process merge_trk_plausible{
-  publishDir = params.final_output_publish_dir
+  publishDir = params.final_output_mni_space
   cpus 1
 
   input:
     set sid, file(tractogram) from merge_trk_plausible
 
   output:
-    set sid, "${sid}__plausible_${params.template_space}.trk" into plausible_for_extract_unplausible
+    set sid, "${sid}__plausible_${params.template_space}.trk" into plausible_for_extract_unplausible, trk_plausible_for_register_plausible_to_orig
 
   script:
   """
@@ -1751,13 +1760,13 @@ process merge_trk_plausible{
 trk_for_extract_unplausible.join(plausible_for_extract_unplausible).set{for_trk_unplausible}
 
 process extract_trk_unplausible{
-  publishDir = params.final_output_publish_dir
+  publishDir = params.final_output_mni_space
   cpus 1
 
   input:
     set sid, file(trk01), file(trk02) from for_trk_unplausible
   output:
-    set sid, "${sid}__unplausible_${params.template_space}.trk"
+    set sid, "${sid}__unplausible_${params.template_space}.trk" into trk_unplausible_for_register_to_orig
 
   script:
   """
@@ -1769,7 +1778,7 @@ process extract_trk_unplausible{
 RENAME CC CC_Homotopic
 */
 process rename_cc_homotopic {
-  publishDir = params.final_output_publish_dir
+  publishDir = params.final_output_mni_space
   cpus 1
 
   input:
@@ -1780,12 +1789,12 @@ process rename_cc_homotopic {
     set sid, val(list), file(trk05) from CC_Homotopic_insular_for_rename
     set sid, val(list), file(trk06) from CC_Homotopic_cingulum_for_rename
   output:
-    set sid, "${sid}__cc_homotopic_frontal_${params.template_space}.trk"
-    set sid, "${sid}__cc_homotopic_occipital_${params.template_space}.trk"
-    set sid, "${sid}__cc_homotopic_temporal_${params.template_space}.trk"
-    set sid, "${sid}__cc_homotopic_parietal_${params.template_space}.trk"
-    set sid, "${sid}__cc_homotopic_insular_${params.template_space}.trk"
-    set sid, "${sid}__cc_homotopic_cingulum_${params.template_space}.trk"
+    set sid, "${sid}__cc_homotopic_frontal_${params.template_space}.trk" into cc_homotopic_frontal_for_register_to_orig
+    set sid, "${sid}__cc_homotopic_occipital_${params.template_space}.trk" into cc_homotopic_occipital_for_register_to_orig
+    set sid, "${sid}__cc_homotopic_temporal_${params.template_space}.trk" into cc_homotopic_temporal_for_register_to_orig
+    set sid, "${sid}__cc_homotopic_parietal_${params.template_space}.trk" into cc_homotopic_parietal_for_register_to_orig
+    set sid, "${sid}__cc_homotopic_insular_${params.template_space}.trk" into cc_homotopic_insular_for_register_to_orig
+    set sid, "${sid}__cc_homotopic_cingulum_${params.template_space}.trk" into cc_homotopic_cingulum_for_register_to_orig
 
   when:
     params.extended
@@ -1804,16 +1813,16 @@ process rename_cc_homotopic {
 /*
 RENAME CORTICO_STRIATE
 */
-BG_ipsi_Caud_for_rename.concat(BG_ipsi_Put_for_rename).groupTuple(by:[0,1]).set{cortico_striate_for_rename}
+BG_ipsi_Caud_for_rename.concat(BG_ipsi_Put_for_rename).groupTuple(by:[0,1]).set{corticostriate_for_rename}
 process rename_cortico_striate {
-  publishDir = params.final_output_publish_dir
+  publishDir = params.final_output_mni_space
   cpus 1
 
   input:
-    set sid, val(side), file(tractogram) from cortico_striate_for_rename
+    set sid, val(side), file(tractogram) from corticostriate_for_rename
 
   output:
-    set sid, "${sid}__corticostriatal_${side}_${params.template_space}.trk"
+    set sid, "${sid}__corticostriatal_${side}_${params.template_space}.trk" into corticostriatal_for_register_to_orig
 
   when:
     params.extended
@@ -1828,14 +1837,14 @@ process rename_cortico_striate {
 RENAME Corona radiata
 */
 process rename_coronaradiata {
-  publishDir = params.final_output_publish_dir
+  publishDir = params.final_output_mni_space
   cpus 1
 
   input:
     set sid, val(side), file(tractogram) from BG_ipsi_Thal_for_rename
 
   output:
-    set sid, val(side), "${sid}__coronaradiata_${side}_${params.template_space}.trk"
+    set sid, "${sid}__coronaradiata_${side}_${params.template_space}.trk" into coronaradiata_for_register_to_orig
 
   when:
     params.extended
@@ -1850,14 +1859,14 @@ process rename_coronaradiata {
 RENAME OPTICAL RADIATION
 */
 process rename_optical_radiation {
-  publishDir = params.final_output_publish_dir
+  publishDir = params.final_output_mni_space
   cpus 1
 
   input:
     set sid, val(side), val(list), file(tractogram) from optic_radiation_for_rename
 
   output:
-    set sid, "${sid}__optical_radiation_${side}_${params.template_space}.trk"
+    set sid, "${sid}__optical_radiation_${side}_${params.template_space}.trk" into optical_radiation_for_register_to_orig
 
   when:
     params.extended
@@ -1872,14 +1881,14 @@ process rename_optical_radiation {
 RENAME U SHAPE
 */
 process rename_ushape {
-  publishDir = params.final_output_publish_dir
+  publishDir = params.final_output_mni_space
   cpus 1
 
   input:
     set sid, val(side), file(tractogram) from asso_u_shape_for_rename
 
   output:
-    set sid, "${sid}__ushape_${side}_${params.template_space}.trk"
+    set sid, "${sid}__ushape_${side}_${params.template_space}.trk" into ushape_for_register_to_orig
 
   when:
     params.extended
@@ -1894,14 +1903,14 @@ process rename_ushape {
 RENAME CING
 */
 process rename_cing {
-  publishDir = params.final_output_publish_dir
+  publishDir = params.final_output_mni_space
   cpus 1
 
   input:
     set sid, val(side), file(tractogram) from Cing_for_rename
 
   output:
-    set sid, "${sid}__cing_${side}_${params.template_space}.trk"
+    set sid, "${sid}__cing_${side}_${params.template_space}.trk" into cing_for_register_to_orig
 
   when:
     params.extended
@@ -1917,14 +1926,14 @@ RENAME SLF
 */
 asso_all_intra_inter_dorsal_all_f_O_for_rename.concat(asso_all_intra_inter_dorsal_f_p_for_rename).groupTuple(by:[0,1]).set{slf_for_rename}
 process rename_slf {
-  publishDir = params.final_output_publish_dir
+  publishDir = params.final_output_mni_space
   cpus 1
 
   input:
     set sid, val(side), val(list), file(tractogram) from slf_for_rename
 
   output:
-    set sid, "${sid}__slf_${side}_${params.template_space}.trk"
+    set sid, "${sid}__slf_${side}_${params.template_space}.trk" into slf_for_register_to_orig
 
   when:
     params.extended
@@ -1939,14 +1948,14 @@ process rename_slf {
 RENAME AF
 */
 process rename_af {
-  publishDir = params.final_output_publish_dir
+  publishDir = params.final_output_mni_space
   cpus 1
 
   input:
     set sid, val(side), asso_list, file(tractogram) from asso_all_intra_inter_dorsal_all_f_T_for_rename
 
   output:
-    set sid, "${sid}__af_${side}_${params.template_space}.trk"
+    set sid, "${sid}__af_${side}_${params.template_space}.trk" into af_for_register_to_orig
 
   when:
     params.extended
@@ -1961,14 +1970,14 @@ process rename_af {
 RENAME Cortico-pontine_F
 */
 process rename_corticopontine_F {
-  publishDir = params.final_output_publish_dir
+  publishDir = params.final_output_mni_space
   cpus 1
 
   input:
     set sid, file(tractogram) from brainstem_corticopontine_frontal_for_rename
     each side from side_corticopontineF
   output:
-    set sid, "${sid}__corticopontine_frontal_${side}_${params.template_space}.trk"
+    set sid, "${sid}__corticopontine_frontal_${side}_${params.template_space}.trk" into corticopontine_frontal_for_register_to_orig
 
   when:
     params.extended
@@ -1982,7 +1991,7 @@ process rename_corticopontine_F {
 RENAME cortico-pontine_POT
 */
 process rename_corticopontine_POT {
-  publishDir = params.final_output_publish_dir
+  publishDir = params.final_output_mni_space
   cpus 1
 
   input:
@@ -1990,7 +1999,7 @@ process rename_corticopontine_POT {
     each side from side_corticopontinePOT
 
   output:
-    set sid, "${sid}__corticopontine_POT_${side}_${params.template_space}.trk"
+    set sid, "${sid}__corticopontine_POT_${side}_${params.template_space}.trk" into corticopontine_POT_for_register_to_orig
 
   when:
     params.extended
@@ -2005,7 +2014,7 @@ process rename_corticopontine_POT {
 RENAME Pyramidal tract (CST)
 */
 process rename_cst {
-  publishDir = params.final_output_publish_dir
+  publishDir = params.final_output_mni_space
   cpus 1
 
   input:
@@ -2013,7 +2022,7 @@ process rename_cst {
     each side from side_cst
 
   output:
-    set sid, "${sid}__cst_${side}_${params.template_space}.trk"
+    set sid, "${sid}__cst_${side}_${params.template_space}.trk" into cst_for_register_to_orig
 
   when:
     params.extended
@@ -2028,14 +2037,14 @@ process rename_cst {
 RENAME fornix
 */
 process rename_fornix {
-  publishDir = params.final_output_publish_dir
+  publishDir = params.final_output_mni_space
   cpus 1
 
   input:
     set sid, file(tractogram) from fornix_for_rename
 
   output:
-    set sid, "${sid}__fornix_${params.template_space}.trk"
+    set sid, "${sid}__fornix_${params.template_space}.trk" into fornix_for_register_to_orig
 
   when:
     params.extended
@@ -2050,14 +2059,14 @@ process rename_fornix {
 RENAME IFOF
 */
 process rename_ifof {
-  publishDir = params.final_output_publish_dir
+  publishDir = params.final_output_mni_space
   cpus 1
 
   input:
     set sid, val(side), file(tractogram) from asso_IFOF_for_rename
 
   output:
-    set sid, "${sid}__ifof_${side}_${params.template_space}.trk"
+    set sid, "${sid}__ifof_${side}_${params.template_space}.trk" into ifof_for_register_to_orig
 
   when:
     params.extended
@@ -2072,14 +2081,14 @@ process rename_ifof {
 RENAME UF
 */
 process rename_uf {
-  publishDir = params.final_output_publish_dir
+  publishDir = params.final_output_mni_space
   cpus 1
 
   input:
     set sid, val(side), file(tractogram) from asso_UF_for_rename
 
   output:
-    set sid, "${sid}__uf_${side}_${params.template_space}.trk"
+    set sid, "${sid}__uf_${side}_${params.template_space}.trk" into uf_for_register_to_orig
 
   when:
     params.extended
@@ -2094,14 +2103,14 @@ process rename_uf {
 RENAME ILF
 */
 process rename_ilf {
-  publishDir = params.final_output_publish_dir
+  publishDir = params.final_output_mni_space
   cpus 1
 
   input:
     set sid, val(side), file(tractogram) from all_O_T_for_rename
 
   output:
-    set sid, "${sid}__ilf_${side}_${params.template_space}.trk"
+    set sid, "${sid}__ilf_${side}_${params.template_space}.trk" into ilf_for_register_to_orig
 
   when:
     params.extended
@@ -2116,14 +2125,14 @@ process rename_ilf {
 RENAME BRAINSTEM
 */
 process rename_brainstem {
-  publishDir = params.final_output_publish_dir
+  publishDir = params.final_output_mni_space
   cpus 1
 
   input:
     set sid, file(tractogram) from brainstem_for_rename
 
   output:
-    set sid, "${sid}__brainstem_${params.template_space}.trk"
+    set sid, "${sid}__brainstem_${params.template_space}.trk" into brainstem_for_register_to_orig
 
   when:
     params.extended
@@ -2138,14 +2147,14 @@ process rename_brainstem {
 RENAME CEREBELLUM
 */
 process rename_cerebellum {
-  publishDir = params.final_output_publish_dir
+  publishDir = params.final_output_mni_space
   cpus 1
 
   input:
     set sid, file(tractogram) from cerebellum_for_rename
 
   output:
-    set sid, "${sid}__cerebellum_${params.template_space}.trk"
+    set sid, "${sid}__cerebellum_${params.template_space}.trk" into cerebellum_for_register_to_orig
 
   when:
     params.extended
@@ -2153,5 +2162,68 @@ process rename_cerebellum {
   script:
   """
     cp ${tractogram} ${sid}__cerebellum_${params.template_space}.trk -f
+  """
+}
+
+if (params.orig){
+    if (params.extended){
+        trk_plausible_for_register_plausible_to_orig
+            .concat(trk_unplausible_for_register_to_orig)
+            .concat(cc_homotopic_frontal_for_register_to_orig)
+            .concat(cc_homotopic_occipital_for_register_to_orig)
+            .concat(cc_homotopic_temporal_for_register_to_orig)
+            .concat(cc_homotopic_parietal_for_register_to_orig)
+            .concat(cc_homotopic_insular_for_register_to_orig)
+            .concat(cc_homotopic_cingulum_for_register_to_orig)
+            .concat(corticostriatal_for_register_to_orig)
+            .concat(coronaradiata_for_register_to_orig)
+            .concat(optical_radiation_for_register_to_orig)
+            .concat(ushape_for_register_to_orig)
+            .concat(cing_for_register_to_orig)
+            .concat(slf_for_register_to_orig)
+            .concat(af_for_register_to_orig)
+            .concat(corticopontine_frontal_for_register_to_orig)
+            .concat(corticopontine_POT_for_register_to_orig)
+            .concat(cst_for_register_to_orig)
+            .concat(fornix_for_register_to_orig)
+            .concat(ifof_for_register_to_orig)
+            .concat(uf_for_register_to_orig)
+            .concat(ilf_for_register_to_orig)
+            .concat(brainstem_for_register_to_orig)
+            .concat(cerebellum_for_register_to_orig)
+            .combine(transformation_and_t1_for_transformation_to_orig, by: 0)
+            .set{trks_for_register}
+      }
+    else{
+        trk_plausible_for_register_plausible_to_orig
+            .concat(trk_unplausible_for_register_to_orig)
+            .combine(transformation_and_t1_for_transformation_to_orig, by: 0)
+            .set{trks_for_register}
+    }
+}
+/*
+transformation_and_t1_for_transformation_to_orig
+    .combine(trks_for_register, by: 0)
+    .set{toto}
+
+toto.println()
+*/
+
+process register_to_orig{
+  publishDir = params.final_output_orig_space
+  cpus 1
+
+  input:
+    tuple sid, file(trk), file(t1), file(transfo) from trks_for_register
+
+  output:
+    set sid, "${sid}__*_${params.orig_space}.trk"
+
+  when:
+    params.orig
+
+  script:
+  """
+    scil_apply_transform_to_tractogram.py ${trk} ${t1} ${transfo}  ${trk.getSimpleName().replaceAll("mni_space", "orig_space")}.trk --keep_invalid
   """
 }

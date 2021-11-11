@@ -30,7 +30,7 @@ OPTIONAL ARGUMENTS (current value)
     --run_bet                           Run bet if your t1s are not brain extracted ($run_bet).
     --orig                              Extract all trk in diffusion space (if t1 has been provided) ($orig).
     --extended                          Extract bundles ($extended).
-    --keep_intermediate_steps           Keep intermediate steps ($keep_intermediate_steps).
+    --keep_intermediate_steps           Keep intermediate steps ($keep_intermediate_steps). MUST be used if you need to debug.
 
     --processes_bet_register_t1         Number of processes for T1 brain extraction task ($processes_bet_register_t1).
     --processes_apply_registration      Number of processes for registration application ($processes_apply_registration).
