@@ -2201,13 +2201,6 @@ if (params.orig){
             .set{trks_for_register}
     }
 }
-/*
-transformation_and_t1_for_transformation_to_orig
-    .combine(trks_for_register, by: 0)
-    .set{toto}
-
-toto.println()
-*/
 
 process register_to_orig{
   publishDir = params.final_output_orig_space
