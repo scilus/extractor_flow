@@ -224,7 +224,7 @@ process Major_filtering {
     """
 }
 
-process remove_ee_CC_DWM {
+process Remove_ee_CC_DWM {
   cpus 1
 
   input:
@@ -252,7 +252,7 @@ process remove_ee_CC_DWM {
 }
 
 trk_for_extract_first_unplausible.join(wb_for_extract_first_unplausible).set{unplausible_streamlines}
-process extract_first_unplausible{
+process Extract_first_unplausible{
   cpus 1
 
   input:
@@ -269,7 +269,7 @@ process extract_first_unplausible{
   """
 }
 
-process extract_fornix{
+process Extract_fornix{
   cpus 1
 
   input:
@@ -289,7 +289,7 @@ process extract_fornix{
 }
 
 
-process extract_ee_cerebellum {
+process Extract_ee_cerebellum {
   cpus 1
 
   input:
@@ -314,7 +314,7 @@ process extract_ee_cerebellum {
 }
 
 
-process extract_plausible_cerebellum {
+process Extract_plausible_cerebellum {
   cpus 1
 
   input:
@@ -348,7 +348,7 @@ process extract_plausible_cerebellum {
   END Cerebellum
 */
 
-process extract_ee_brainstem {
+process Extract_ee_brainstem {
   cpus 1
 
   input:
@@ -376,7 +376,7 @@ process extract_ee_brainstem {
   Brainstem
 */
 
-process extract_plausible_brainstem {
+process Extract_plausible_brainstem {
   cpus 1
 
   input:
@@ -438,7 +438,7 @@ process extract_plausible_brainstem {
 Brain - Either end in CGM SWM
 */
 
-process remove_out_of_CGM_DWM {
+process Remove_out_of_CGM_DWM {
   cpus 1
 
   input:
@@ -462,7 +462,7 @@ process remove_out_of_CGM_DWM {
     template "filter_with_atlas.sh"
 }
 
-process extract_all_commissural {
+process Extract_all_commissural {
   cpus 1
 
   input:
@@ -486,7 +486,7 @@ process extract_all_commissural {
   template "filter_with_atlas.sh"
 }
 
-process split_CC_BG {
+process Split_CC_BG {
   cpus 1
 
   input:
@@ -509,7 +509,7 @@ process split_CC_BG {
   template "filter_with_atlas.sh"
 }
 
-process first_cc_cleaning {
+process First_cc_cleaning {
   cpus 1
 
   input:
@@ -574,7 +574,7 @@ Channel.from(bg_list).into{bg_thal_list;
 /*
 BG THAL
 */
-process split_BG_Thal {
+process Split_BG_Thal {
   cpus 1
 
   input:
@@ -604,7 +604,7 @@ CuGWM_for_combine.concat(LGWM_for_combine).groupTuple(by:[0,1]).set{optic_radiat
 
 BG_ipsi_Thal_for_merge.groupTuple().map{it}.set{BG_ipsi_Thal_list_for_merge}
 
-process merge_BG_Thal{
+process Merge_BG_Thal{
   cpus 1
 
   input:
@@ -622,7 +622,7 @@ process merge_BG_Thal{
 /*
 BG PUT
 */
-process split_BG_Put {
+process Split_BG_Put {
   cpus 1
 
   input:
@@ -645,7 +645,7 @@ process split_BG_Put {
 
 BG_ipsi_Put_for_merge.groupTuple().map{it}.set{BG_ipsi_Put_list_for_merge}
 
-process merge_BG_Put{
+process Merge_BG_Put{
   cpus 1
 
   input:
@@ -664,7 +664,7 @@ process merge_BG_Put{
 BG CAUD
 */
 bg_caud_list=params.bg_caud_lists?.tokenize(',')
-process split_BG_Caud {
+process Split_BG_Caud {
   cpus 1
 
   input:
@@ -687,7 +687,7 @@ process split_BG_Caud {
 
 BG_ipsi_Caud_for_merge.groupTuple().map{it}.set{BG_ipsi_Caud_list_for_merge}
 
-process merge_BG_Caud{
+process Merge_BG_Caud{
   cpus 1
 
   input:
@@ -702,7 +702,7 @@ process merge_BG_Caud{
   """
 }
 
-process split_asso_in_hemi {
+process Split_asso_in_hemi {
   cpus 1
 
   input:
@@ -735,7 +735,7 @@ process split_asso_in_hemi {
 Extracting U-shaped and streamlines restricted to Cortical GM and removing them from asso
 */
 
-process split_ushape_CGM_asso {
+process Split_ushape_CGM_asso {
   cpus 1
 
   input:
@@ -956,7 +956,7 @@ script:
 
 asso_ventral_f_t_list=params.asso_ventral_f_t_lists?.tokenize(',')
 
-process asso_ventral_f_t {
+process Asso_ventral_f_t {
   cpus 1
 
   input:
@@ -980,7 +980,7 @@ process asso_ventral_f_t {
 
 asso_all_intra_inter_ventral_f_t_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_all_intra_inter_ventral_f_t_list_for_merge}
 
-process merge_asso_ventral_f_t {
+process Merge_asso_ventral_f_t {
   cpus 1
 
   input:
@@ -997,7 +997,7 @@ process merge_asso_ventral_f_t {
 
 asso_ventral_f_o_f_p_lists=params.asso_ventral_f_o_f_p_lists?.tokenize(',')
 
-process asso_ventral_f_o_f_p {
+process Asso_ventral_f_o_f_p {
   cpus 1
 
   input:
@@ -1022,7 +1022,7 @@ process asso_ventral_f_o_f_p {
 
 asso_all_intra_inter_ventral_all_f_t_for_merge.groupTuple(by:[0,1]).join(asso_all_intra_inter_ventral_all_f_o_f_p_for_merge.groupTuple(by:[0,1]), by:[0,1]).map{it.flatten().toList()}.set{asso_all_intra_inter_ventral_all_for_merge}
 
-process merge_asso_ventral {
+process Merge_asso_ventral {
   cpus 1
 
   input:
@@ -1037,7 +1037,7 @@ process merge_asso_ventral {
   """
 }
 
-process split_asso_ventral_ifof_uf {
+process Split_asso_ventral_ifof_uf {
   cpus 1
 
   input:
@@ -1063,7 +1063,7 @@ process split_asso_ventral_ifof_uf {
 
 asso_dorsal_f_p_lists=params.asso_dorsal_f_p_lists?.tokenize(',')
 
-process asso_dorsal_f_p {
+process Asso_dorsal_f_p {
   cpus 1
 
   input:
@@ -1088,7 +1088,7 @@ process asso_dorsal_f_p {
 
 asso_all_intra_inter_dorsal_f_p_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_all_intra_inter_dorsal_f_p_list_for_merge}
 
-process merge_asso_dorsal_f_p {
+process Merge_asso_dorsal_f_p {
   cpus 1
 
   input:
@@ -1105,7 +1105,7 @@ process merge_asso_dorsal_f_p {
 
 asso_dorsal_f_o_f_t_list=params.asso_dorsal_f_o_f_t_lists?.tokenize(',')
 
-process asso_dorsal_f_o_f_t {
+process Asso_dorsal_f_o_f_t {
   cpus 1
 
   input:
@@ -1133,7 +1133,7 @@ asso_all_intra_inter_dorsal_all_f_O_for_filter.filter{it[2]=='O_dorsal_f'}.set{a
 
 asso_all_intra_inter_dorsal_all_f_p_for_merge.groupTuple(by:[0,1]).join(asso_all_intra_inter_dorsal_all_f_o_f_t_for_merge.groupTuple(by:[0,1]), by:[0,1]).map{it.flatten().toList()}.set{asso_all_intra_inter_dorsal_all_for_merge}
 
-process merge_asso_dorsal {
+process Merge_asso_dorsal {
   cpus 1
 
   input:
@@ -1154,7 +1154,7 @@ process merge_asso_dorsal {
 
 asso_p_o_list=params.asso_p_o_lists?.tokenize(',')
 
-process asso_p_o {
+process Asso_p_o {
   cpus 1
 
   input:
@@ -1178,7 +1178,7 @@ process asso_p_o {
 
 asso_intra_inter_p_o_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_intra_inter_p_o_list_for_merge}
 
-process merge_p_o {
+process Merge_p_o {
   cpus 1
 
   input:
@@ -1199,7 +1199,7 @@ process merge_p_o {
 
 asso_p_t_list=params.asso_p_t_lists?.tokenize(',')
 
-process asso_p_t {
+process Asso_p_t {
   cpus 1
 
   input:
@@ -1223,7 +1223,7 @@ process asso_p_t {
 
 asso_intra_inter_p_t_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_intra_inter_p_t_list_for_merge}
 
-process merge_p_t {
+process Merge_p_t {
   cpus 1
 
   input:
@@ -1244,7 +1244,7 @@ process merge_p_t {
 
 asso_o_t_list=params.asso_o_t_lists?.tokenize(',')
 
-process asso_o_t {
+process Asso_o_t {
   cpus 1
 
   input:
@@ -1268,7 +1268,7 @@ process asso_o_t {
 
 asso_intra_inter_o_t_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_intra_inter_o_t_list_for_merge}
 
-process merge_o_t {
+process Merge_o_t {
   cpus 1
 
   input:
@@ -1290,7 +1290,7 @@ process merge_o_t {
 
 asso_ins_list=params.asso_ins_lists?.tokenize(',')
 
-process asso_ins {
+process Asso_ins {
   cpus 1
 
   input:
@@ -1314,7 +1314,7 @@ process asso_ins {
 
 asso_intra_inter_ins_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_intra_inter_ins_list_for_merge}
 
-process merge_ins {
+process Merge_ins {
   cpus 1
 
   input:
@@ -1333,7 +1333,7 @@ process merge_ins {
   ASSO CING
 */
 
-process asso_Cing {
+process Asso_Cing {
   cpus 1
 
   input:
@@ -1360,7 +1360,7 @@ process asso_Cing {
 */
 
 asso_frontal_be_list=params.asso_frontal_be_lists?.tokenize(',')
-process asso_be_frontal_gyrus {
+process Asso_be_frontal_gyrus {
   cpus 1
 
   input:
@@ -1378,7 +1378,7 @@ process asso_be_frontal_gyrus {
 }
 
 asso_frontal_be_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_frontal_be_list_for_merge}
-process merge_asso_be_frontal_gyrus{
+process Merge_asso_be_frontal_gyrus{
   cpus 1
 
   input:
@@ -1399,7 +1399,7 @@ process merge_asso_be_frontal_gyrus{
 
 asso_frontal_ee_list = Channel.from(['SFG_MFG', 70],['SFG_IFG', 70], ['SFG_PrCG', 90], ['SFG_FrOrbG', 70], ['MFG_IFG', 70], ['MFG_PrCG', 110], ['MFG_FrOrbG', 60], ['IFG_PrCG', 110], ['IFG_FrOrbG', 60])
 asso_all_intra_inter_for_ee_frontal_filtering.combine(asso_frontal_ee_list).set{asso_frontal_ee_for_extract}
-process asso_ee_frontal_gyrus {
+process Asso_ee_frontal_gyrus {
   cpus 1
 
   input:
@@ -1417,7 +1417,7 @@ process asso_ee_frontal_gyrus {
 }
 
 asso_frontal_ee_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_frontal_ee_list_for_merge}
-process merge_asso_ee_frontal_gyrus{
+process Merge_asso_ee_frontal_gyrus{
   cpus 1
 
   input:
@@ -1437,7 +1437,7 @@ process merge_asso_ee_frontal_gyrus{
 */
 
 asso_occipital_be_list=params.asso_occipital_be_lists?.tokenize(',')
-process asso_be_occipital_gyrus {
+process Asso_be_occipital_gyrus {
   cpus 1
 
   input:
@@ -1455,7 +1455,7 @@ process asso_be_occipital_gyrus {
 }
 
 asso_occipital_be_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_occipital_be_list_for_merge}
-process merge_asso_be_occipital_gyrus{
+process Merge_asso_be_occipital_gyrus{
   cpus 1
 
   input:
@@ -1476,7 +1476,7 @@ process merge_asso_be_occipital_gyrus{
 
 asso_occipital_ee_list = Channel.from(['MOG_SOG', 60],['MOG_IOG', 50], ['MOG_CuG', 60], ['SOG_CuG', 30], ['CuG_LG', 60])
 asso_all_intra_inter_for_ee_occipital_filtering.combine(asso_occipital_ee_list).set{asso_occipital_ee_for_extract}
-process asso_ee_occipital_gyrus {
+process Asso_ee_occipital_gyrus {
   cpus 1
 
   input:
@@ -1494,7 +1494,7 @@ process asso_ee_occipital_gyrus {
 }
 
 asso_occipital_ee_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_occipital_ee_list_for_merge}
-process merge_asso_ee_occipital_gyrus{
+process Merge_asso_ee_occipital_gyrus{
   cpus 1
 
   input:
@@ -1514,7 +1514,7 @@ process merge_asso_ee_occipital_gyrus{
 */
 
 asso_parietal_be_list=params.asso_parietal_be_lists?.tokenize(',')
-process asso_be_parietal_gyrus {
+process Asso_be_parietal_gyrus {
   cpus 1
 
   input:
@@ -1532,7 +1532,7 @@ process asso_be_parietal_gyrus {
 }
 
 asso_parietal_be_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_parietal_be_list_for_merge}
-process merge_asso_be_parietal_gyrus{
+process Merge_asso_be_parietal_gyrus{
   cpus 1
 
   input:
@@ -1553,7 +1553,7 @@ process merge_asso_be_parietal_gyrus{
 
 asso_parietal_ee_list = Channel.from(['SPG_PoCG', 50], ['SPG_AG', 80], ['SPG_SMG', 70], ['SPG_PrCuG', 50], ['AG_PoCG', 10000], ['AG_SMG', 90], ['AG_PrCuG', 90] , ['SMG_PoCG', 60], ['SMG_PrCuG',100], ['PoCG_PrCuG', 80])
 asso_all_intra_inter_for_ee_parietal_filtering.combine(asso_parietal_ee_list).set{asso_parietal_ee_for_extract}
-process asso_ee_parietal_gyrus {
+process Asso_ee_parietal_gyrus {
   cpus 1
 
   input:
@@ -1571,7 +1571,7 @@ process asso_ee_parietal_gyrus {
 }
 
 asso_parietal_ee_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_parietal_ee_list_for_merge}
-process merge_asso_ee_parietal_gyrus{
+process Merge_asso_ee_parietal_gyrus{
   cpus 1
 
   input:
@@ -1591,7 +1591,7 @@ process merge_asso_ee_parietal_gyrus{
 */
 
 asso_temporal_be_list=params.asso_temporal_be_lists?.tokenize(',')
-process asso_be_temporal_gyrus {
+process Asso_be_temporal_gyrus {
   cpus 1
 
   input:
@@ -1609,7 +1609,7 @@ process asso_be_temporal_gyrus {
 }
 
 asso_temporal_be_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_temporal_be_list_for_merge}
-process merge_asso_be_temporal_gyrus{
+process Merge_asso_be_temporal_gyrus{
   cpus 1
 
   input:
@@ -1630,7 +1630,7 @@ process merge_asso_be_temporal_gyrus{
 
 asso_temporal_ee_list = Channel.from(['STG_MTG', 60], ['STG_ITG',80], ['STG_Tpole',110], ['MTG_ITG',60], ['MTG_Tpole', 100000], ['ITG_Tpole', 60])
 asso_all_intra_inter_for_ee_temporal_filtering.combine(asso_temporal_ee_list).set{asso_temporal_ee_for_extract}
-process asso_ee_temporal_gyrus {
+process Asso_ee_temporal_gyrus {
   cpus 1
 
   input:
@@ -1648,7 +1648,7 @@ process asso_ee_temporal_gyrus {
 }
 
 asso_temporal_ee_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_temporal_ee_list_for_merge}
-process merge_asso_ee_temporal_gyrus{
+process Merge_asso_ee_temporal_gyrus{
   cpus 1
 
   input:
@@ -1665,7 +1665,7 @@ process merge_asso_ee_temporal_gyrus{
 
 fornix_for_trk_plausible.concat(cerebellum_for_trk_plausible,brainstem_for_trk_plausible,BG_ipsi_Thal_for_trk_plausible,BG_ipsi_Put_for_trk_plausible,BG_ipsi_Caud_for_trk_plausible,asso_u_shape_for_trk_plausible,CC_homo_for_trk_plausible,asso_all_dorsal_for_trk_plausible,asso_all_ventral_for_trk_plausible,all_P_O_for_trk_plausible,all_P_T_for_trk_plausible,all_O_T_for_trk_plausible,Ins_for_trk_plausible,Cing_for_trk_plausible,asso_all_intraF_be_for_trk_plausible,asso_all_intraF_ee_for_trk_plausible,asso_all_intraP_be_for_trk_plausible,asso_all_intraP_ee_for_trk_plausible,asso_all_intraO_be_for_trk_plausible,asso_all_intraO_ee_for_trk_plausible,asso_all_intraT_be_for_trk_plausible,asso_all_intraT_ee_for_trk_plausible).groupTuple(by: 0).set{merge_trk_plausible}
 
-process merge_trk_plausible{
+process Merge_trk_plausible{
   publishDir = params.final_output_mni_space
   cpus 1
 
@@ -1683,7 +1683,7 @@ process merge_trk_plausible{
 
 trk_for_extract_unplausible.join(plausible_for_extract_unplausible).set{for_trk_unplausible}
 
-process extract_trk_unplausible{
+process Extract_trk_unplausible{
   publishDir = params.final_output_mni_space
   cpus 1
 
@@ -1701,7 +1701,7 @@ process extract_trk_unplausible{
 /*
 RENAME CC CC_Homotopic
 */
-process rename_cc_homotopic {
+process Rename_cc_homotopic {
   publishDir = params.final_output_mni_space
   cpus 1
 
@@ -1738,7 +1738,7 @@ process rename_cc_homotopic {
 RENAME CORTICO_STRIATE
 */
 BG_ipsi_Caud_for_rename.concat(BG_ipsi_Put_for_rename).groupTuple(by:[0,1]).set{corticostriate_for_rename}
-process rename_cortico_striate {
+process Rename_cortico_striate {
   publishDir = params.final_output_mni_space
   cpus 1
 
@@ -1760,7 +1760,7 @@ process rename_cortico_striate {
 /*
 RENAME Corona radiata
 */
-process rename_coronaradiata {
+process Rename_coronaradiata {
   publishDir = params.final_output_mni_space
   cpus 1
 
@@ -1782,7 +1782,7 @@ process rename_coronaradiata {
 /*
 RENAME OPTICAL RADIATION
 */
-process rename_optical_radiation {
+process Rename_optical_radiation {
   publishDir = params.final_output_mni_space
   cpus 1
 
@@ -1804,7 +1804,7 @@ process rename_optical_radiation {
 /*
 RENAME U SHAPE
 */
-process rename_ushape {
+process Rename_ushape {
   publishDir = params.final_output_mni_space
   cpus 1
 
@@ -1826,7 +1826,7 @@ process rename_ushape {
 /*
 RENAME CING
 */
-process rename_cing {
+process Rename_cing {
   publishDir = params.final_output_mni_space
   cpus 1
 
@@ -1849,7 +1849,7 @@ process rename_cing {
 RENAME SLF
 */
 asso_all_intra_inter_dorsal_all_f_O_for_rename.concat(asso_all_intra_inter_dorsal_f_p_for_rename).groupTuple(by:[0,1]).set{slf_for_rename}
-process rename_slf {
+process Rename_slf {
   publishDir = params.final_output_mni_space
   cpus 1
 
@@ -1871,7 +1871,7 @@ process rename_slf {
 /*
 RENAME AF
 */
-process rename_af {
+process Rename_af {
   publishDir = params.final_output_mni_space
   cpus 1
 
@@ -1893,7 +1893,7 @@ process rename_af {
 /*
 RENAME Cortico-pontine_F
 */
-process rename_corticopontine_F {
+process Rename_corticopontine_F {
   publishDir = params.final_output_mni_space
   cpus 1
 
@@ -1914,7 +1914,7 @@ process rename_corticopontine_F {
 /*
 RENAME cortico-pontine_POT
 */
-process rename_corticopontine_POT {
+process Rename_corticopontine_POT {
   publishDir = params.final_output_mni_space
   cpus 1
 
@@ -1937,7 +1937,7 @@ process rename_corticopontine_POT {
 /*
 RENAME Pyramidal tract (CST)
 */
-process rename_cst {
+process Rename_cst {
   publishDir = params.final_output_mni_space
   cpus 1
 
@@ -1960,7 +1960,7 @@ process rename_cst {
 /*
 RENAME fornix
 */
-process rename_fornix {
+process Rename_fornix {
   publishDir = params.final_output_mni_space
   cpus 1
 
@@ -1982,7 +1982,7 @@ process rename_fornix {
 /*
 RENAME IFOF
 */
-process rename_ifof {
+process Rename_ifof {
   publishDir = params.final_output_mni_space
   cpus 1
 
@@ -2004,7 +2004,7 @@ process rename_ifof {
 /*
 RENAME UF
 */
-process rename_uf {
+process Rename_uf {
   publishDir = params.final_output_mni_space
   cpus 1
 
@@ -2026,7 +2026,7 @@ process rename_uf {
 /*
 RENAME ILF
 */
-process rename_ilf {
+process Rename_ilf {
   publishDir = params.final_output_mni_space
   cpus 1
 
@@ -2048,7 +2048,7 @@ process rename_ilf {
 /*
 RENAME BRAINSTEM
 */
-process rename_brainstem {
+process Rename_brainstem {
   publishDir = params.final_output_mni_space
   cpus 1
 
@@ -2070,7 +2070,7 @@ process rename_brainstem {
 /*
 RENAME CEREBELLUM
 */
-process rename_cerebellum {
+process Rename_cerebellum {
   publishDir = params.final_output_mni_space
   cpus 1
 
@@ -2130,7 +2130,7 @@ else{
   trks_for_register.close()
 }
 
-process register_to_orig{
+process Register_to_orig{
   publishDir = params.final_output_orig_space
   cpus 1
 
