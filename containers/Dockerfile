@@ -1,4 +1,4 @@
-FROM scilus/scilus:dev
+FROM scilus/scilus:latest
 
 WORKDIR /
 

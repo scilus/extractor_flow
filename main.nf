@@ -68,7 +68,7 @@ else {
 }
 
 check_trks.count().into{check_subjects_number; number_subj_for_null_check}
-check_t1s.count().set{number_t1s_for_compare}
+check_t1s.count().into{number_t1s_for_compare; number_t1s_check_with_orig}
 
 number_subj_for_null_check
 .subscribe{a -> if (a == 0)
@@ -80,6 +80,12 @@ check_subjects_number
   .subscribe{a, b -> if (a != b && b > 0)
   error "Error ~ Some subjects have a T1w and others don't.\n" +
         "Please be sure to have the same acquisitions for all subjects."}
+
+if (params.orig){
+    number_t1s_check_with_orig
+      .subscribe{a -> if (a == 0)
+      error "Error ~ You cannot use --orig without having any T1w in the orig space."}
+}
 
 sides = params.sides?.tokenize(',')
 Channel.from(sides).into{sides_ipsi;
@@ -101,7 +107,7 @@ process Register_T1 {
     set sid, file(t1) from t1s_for_register
 
     output:
-    set sid, "${sid}__output0GenericAffine.mat" into transformation_for_trk
+    set sid, "${sid}__output0GenericAffine.mat", "${sid}__output1Warp.nii.gz" into transformation_for_trk
     file "${sid}__t1_${params.template_space}.nii.gz"
     file "${sid}__t1_bet_mask.nii.gz" optional true
     file "${sid}__t1_bet.nii.gz" optional true
@@ -119,7 +125,7 @@ process Register_T1 {
         scil_image_math.py convert bet/BrainExtractionMask.nii.gz ${sid}__t1_bet_mask.nii.gz --data_type uint8
         scil_image_math.py multiplication $t1 ${sid}__t1_bet_mask.nii.gz ${sid}__t1_bet.nii.gz
 
-        antsRegistrationSyN.sh -d 3 -m ${sid}__t1_bet.nii.gz -f ${params.rois_folder}${params.atlas.template} -n ${task.cpus} -o "${sid}__output" -t a
+        antsRegistrationSyN.sh -d 3 -m ${sid}__t1_bet.nii.gz -f ${params.rois_folder}${params.atlas.template} -n ${task.cpus} -o "${sid}__output" -t s
         mv ${sid}__outputWarped.nii.gz ${sid}__t1_${params.template_space}.nii.gz
     """
     }
@@ -130,7 +136,7 @@ process Register_T1 {
         export OPENBLAS_NUM_THREADS=1
         export ANTS_RANDOM_SEED=1234
 
-        antsRegistrationSyN.sh -d 3 -m ${t1} -f ${params.rois_folder}${params.atlas.template} -n ${task.cpus} -o "${sid}__output" -t a
+        antsRegistrationSyN.sh -d 3 -m ${t1} -f ${params.rois_folder}${params.atlas.template} -n ${task.cpus} -o "${sid}__output" -t s
         mv ${sid}__outputWarped.nii.gz ${sid}__t1_${params.template_space}.nii.gz
     """
     }
@@ -141,28 +147,29 @@ transformation_for_trk.into{transformation_for_trk_registration;
 if (params.orig) {
     t1s_for_register_back
         .cross(transformation_for_join_with_t1)
-        .map { [ it[0][0], it[0][1], it[1][1] ] }
+        .map { [ it[0][0], it[0][1], it[1][1], it[1][2] ] }
         .set{transformation_and_t1_for_transformation_to_orig}
 }
 
 transformation_for_trk_registration
     .cross(in_tractogram_for_transformation)
-    .map { [ it[0][0], it[0][1], it[1][1] ] }
+    .map { [ it[0][0], it[0][1], it[0][2], it[1][1] ] }
     .set{trk_and_template_for_transformation_to_template}
+
 
 process Transform_TRK {
     publishDir = params.final_output_mni_space
     cpus 1
 
     input:
-    set sid, file(transfo), file(trk) from trk_and_template_for_transformation_to_template
+    set sid, file(transfo), file(deformation), file(trk) from trk_and_template_for_transformation_to_template
 
     output:
     set sid, "${sid}_*_${params.template_space}.trk" into transformed_for_remove_out_not_JHU, transformed_for_unplausible
 
     script:
     """
-    scil_apply_transform_to_tractogram.py $trk ${params.rois_folder}${params.atlas.template} ${transfo} ${trk.getSimpleName()}_${params.template_space}.trk --remove_invalid --inverse
+    scil_apply_transform_to_tractogram.py $trk ${params.rois_folder}${params.atlas.template} ${transfo} ${trk.getSimpleName()}_${params.template_space}.trk --remove_invalid --inverse --in_deformation ${deformation}
     """
 }
 
@@ -192,113 +199,30 @@ process Remove_invalid_streamlines {
     """
 }
 
-rm_invalid_for_remove_out_not_JHU.mix(transformed_for_remove_out_not_JHU).set{for_remove_out_not_JHU}
+rm_invalid_for_remove_out_not_JHU.mix(transformed_for_remove_out_not_JHU).set{for_major_filtering}
 
-process Remove_out_not_JHU {
+process Major_filtering {
     cpus 1
 
     input:
-      set sid, file(tractogram) from for_remove_out_not_JHU
+      set sid, file(tractogram) from for_major_filtering
 
     output:
-      set sid, "${sid}__wb_in_JHU.trk" into wb_for_rm_crossing_gyri
-      file "${sid}__wb_in_JHU.txt" optional true
-      set sid, "${sid}__wb_out_JHU.trk" optional true
-      file "${sid}__wb_out_JHU.txt" optional true
+      set sid, "${sid}/${tractogram.getSimpleName()}_filtered_filtered.trk" into wb_for_rm_end_in_cc_dwm
+
 
     script:
-    atlas=params.rois_folder+params.atlas.JHU
-    mode=params.mode.both_ends
-    criteria=params.criteria.include
-    out_extension='wb_in_JHU'
-    remaining_extension='wb_out_JHU'
-    basename="${sid}"
-    keep="$params.keep_intermediate_steps"
-
-    template "filter_with_atlas.sh"
-}
-
-process Remove_crossing_Gyri {
-  cpus 1
-
-  input:
-    set sid, file(tractogram) from wb_for_rm_crossing_gyri
-
-  output:
-   set sid, "${sid}__wb_rm_crossing_gyri.trk" into wb_for_pruning
-   file "${sid}__wb_rm_crossing_gyri.txt" optional true
-   set sid, "${sid}__wb_crossing_gyri.trk" optional true
-   file "${sid}__wb_crossing_gyri.txt" optional true
-
-   script:
-   atlas=params.rois_folder+params.atlas.shell_limits
-   mode="any"
-   criteria="exclude"
-   out_extension='wb_rm_crossing_gyri'
-   remaining_extension='wb_crossing_gyri'
-   basename="${sid}"
-   keep="$params.keep_intermediate_steps"
-
-   template "filter_with_atlas.sh"
-}
-
-/*
-Pruning min ${params.min_streaminline_lenght}mm
-*/
-process Pruning {
-  cpus 1
-
-  input:
-    set sid, file(tractogram) from wb_for_pruning
-
-  output:
-    set sid, "${sid}__wb_min${params.min_streaminline_lenght}.trk" into wb_for_rmloop
-    file "${sid}__wb_min${params.min_streaminline_lenght}.txt" optional true
-    set sid, "${sid}__wb_max${params.min_streaminline_lenght}.trk" optional true
-    file "${sid}__wb_max${params.min_streaminline_lenght}.txt" optional true
-
-  script:
-
     """
-    scil_filter_streamlines_by_length.py ${tractogram} --minL ${params.min_streaminline_lenght} \
-                                         --maxL ${params.max_streaminline_lenght} ${sid}__wb_min${params.min_streaminline_lenght}.trk \
-                                         -f --display_counts > ${sid}__wb_min${params.min_streaminline_lenght}.txt
-    if ($params.keep_intermediate_steps)
-    then
-      scil_streamlines_math.py difference ${tractogram} ${sid}__wb_min${params.min_streaminline_lenght}.trk ${sid}__wb_max${params.min_streaminline_lenght}.trk -f
-    fi
+      scil_filter_tractogram_anatomically.py ${tractogram} \
+        ${params.rois_folder}${params.atlas.JHU_8} \
+        ${sid} \
+        --minL ${params.min_streaminline_lenght} \
+        --maxL ${params.max_streaminline_lenght} \
+        -a ${params.loop_angle_threshold} \
+        --csf_bin ${params.rois_folder}${params.atlas.shell_limits} \
+        -f
     """
 }
-
-process remove_loops {
-  cpus 1
-
-  input:
-    set sid, file(wb_min20) from wb_for_rmloop
-
-  output:
-    set sid, "${sid}__wb_min20_noloop.trk" into wb_for_rm_end_in_cc_dwm
-    set sid, "${sid}__wb_loops.trk" optional true
-    file "${sid}__wb_min20_noloop.txt" optional true
-
-  script:
-    """
-    if ($params.keep_intermediate_steps)
-    then
-    scil_detect_streamlines_loops.py ${wb_min20} ${sid}__wb_min20_noloop.trk \
-                                     -a ${params.loop_angle_threshold}  \
-                                     --looping_tractogram ${sid}__wb_loops.trk \
-                                     --display_counts > ${sid}__wb_min20_noloop.txt \
-                                     -f;
-    else
-    scil_detect_streamlines_loops.py ${wb_min20} ${sid}__wb_min20_noloop.trk \
-                                     -a ${params.loop_angle_threshold}  \
-                                     --display_counts > ${sid}__wb_min20_noloop.txt \
-                                    -f
-    fi
-    """
-}
-
 
 process remove_ee_CC_DWM {
   cpus 1
@@ -2201,13 +2125,17 @@ if (params.orig){
             .set{trks_for_register}
     }
 }
+else{
+  trks_for_register = Channel.create()
+  trks_for_register.close()
+}
 
 process register_to_orig{
   publishDir = params.final_output_orig_space
   cpus 1
 
   input:
-    tuple sid, file(trk), file(t1), file(transfo) from trks_for_register
+    tuple sid, file(trk), file(t1), file(transfo), file(deformation) from trks_for_register
 
   output:
     set sid, "${sid}__*_${params.orig_space}.trk"
@@ -2217,6 +2145,6 @@ process register_to_orig{
 
   script:
   """
-    scil_apply_transform_to_tractogram.py ${trk} ${t1} ${transfo}  ${trk.getSimpleName().replaceAll("mni_space", "orig_space")}.trk --keep_invalid
+    scil_apply_transform_to_tractogram.py ${trk} ${t1} ${transfo}  ${trk.getSimpleName().replaceAll("mni_space", "orig_space")}.trk --in_deformation ${deformation} --reverse_operation --keep_invalid
   """
 }
