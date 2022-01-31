@@ -59,9 +59,11 @@ if (params.input){
     .fromPath("$root/**/*_t1.nii.gz",
               maxDepth:1)
              .map{[it.parent.name, it]}
-             .into{t1s_for_register; t1s_for_register_back;check_t1s; t1s_empty}
-
-
+             .into{t1s_for_register;
+                   t1s_for_register_back;
+                   t1s_for_copy_to_orig;
+                   check_t1s;
+                   t1s_empty}
 }
 else {
     error "Error ~ Please use --input for the input data."
@@ -148,7 +150,8 @@ if (params.orig) {
     t1s_for_register_back
         .cross(transformation_for_join_with_t1)
         .map { [ it[0][0], it[0][1], it[1][1], it[1][2] ] }
-        .set{transformation_and_t1_for_transformation_to_orig}
+        .into{transformation_and_t1_for_transformation_to_orig;
+             transformation_and_t1_for_transformation_to_orig_bundles}
 }
 
 transformation_for_trk_registration
@@ -1702,7 +1705,7 @@ process Extract_trk_unplausible{
 RENAME CC CC_Homotopic
 */
 process Rename_cc_homotopic {
-  publishDir = params.final_output_mni_space
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
@@ -1739,7 +1742,7 @@ RENAME CORTICO_STRIATE
 */
 BG_ipsi_Caud_for_rename.concat(BG_ipsi_Put_for_rename).groupTuple(by:[0,1]).set{corticostriate_for_rename}
 process Rename_cortico_striate {
-  publishDir = params.final_output_mni_space
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
@@ -1761,7 +1764,7 @@ process Rename_cortico_striate {
 RENAME Corona radiata
 */
 process Rename_coronaradiata {
-  publishDir = params.final_output_mni_space
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
@@ -1783,7 +1786,7 @@ process Rename_coronaradiata {
 RENAME OPTICAL RADIATION
 */
 process Rename_optical_radiation {
-  publishDir = params.final_output_mni_space
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
@@ -1805,7 +1808,7 @@ process Rename_optical_radiation {
 RENAME U SHAPE
 */
 process Rename_ushape {
-  publishDir = params.final_output_mni_space
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
@@ -1827,7 +1830,7 @@ process Rename_ushape {
 RENAME CING
 */
 process Rename_cing {
-  publishDir = params.final_output_mni_space
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
@@ -1850,7 +1853,7 @@ RENAME SLF
 */
 asso_all_intra_inter_dorsal_all_f_O_for_rename.concat(asso_all_intra_inter_dorsal_f_p_for_rename).groupTuple(by:[0,1]).set{slf_for_rename}
 process Rename_slf {
-  publishDir = params.final_output_mni_space
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
@@ -1872,7 +1875,7 @@ process Rename_slf {
 RENAME AF
 */
 process Rename_af {
-  publishDir = params.final_output_mni_space
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
@@ -1894,7 +1897,7 @@ process Rename_af {
 RENAME Cortico-pontine_F
 */
 process Rename_corticopontine_F {
-  publishDir = params.final_output_mni_space
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
@@ -1915,7 +1918,7 @@ process Rename_corticopontine_F {
 RENAME cortico-pontine_POT
 */
 process Rename_corticopontine_POT {
-  publishDir = params.final_output_mni_space
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
@@ -1938,7 +1941,7 @@ process Rename_corticopontine_POT {
 RENAME Pyramidal tract (CST)
 */
 process Rename_cst {
-  publishDir = params.final_output_mni_space
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
@@ -1961,7 +1964,7 @@ process Rename_cst {
 RENAME fornix
 */
 process Rename_fornix {
-  publishDir = params.final_output_mni_space
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
@@ -1983,7 +1986,7 @@ process Rename_fornix {
 RENAME IFOF
 */
 process Rename_ifof {
-  publishDir = params.final_output_mni_space
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
@@ -2005,7 +2008,7 @@ process Rename_ifof {
 RENAME UF
 */
 process Rename_uf {
-  publishDir = params.final_output_mni_space
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
@@ -2027,7 +2030,7 @@ process Rename_uf {
 RENAME ILF
 */
 process Rename_ilf {
-  publishDir = params.final_output_mni_space
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
@@ -2049,7 +2052,7 @@ process Rename_ilf {
 RENAME BRAINSTEM
 */
 process Rename_brainstem {
-  publishDir = params.final_output_mni_space
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
@@ -2071,7 +2074,7 @@ process Rename_brainstem {
 RENAME CEREBELLUM
 */
 process Rename_cerebellum {
-  publishDir = params.final_output_mni_space
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
@@ -2089,11 +2092,11 @@ process Rename_cerebellum {
   """
 }
 
+trks_for_register = Channel.empty()
+
 if (params.orig){
     if (params.extended){
-        trk_plausible_for_register_plausible_to_orig
-            .concat(trk_unplausible_for_register_to_orig)
-            .concat(cc_homotopic_frontal_for_register_to_orig)
+        cc_homotopic_frontal_for_register_to_orig
             .concat(cc_homotopic_occipital_for_register_to_orig)
             .concat(cc_homotopic_temporal_for_register_to_orig)
             .concat(cc_homotopic_parietal_for_register_to_orig)
@@ -2115,6 +2118,11 @@ if (params.orig){
             .concat(ilf_for_register_to_orig)
             .concat(brainstem_for_register_to_orig)
             .concat(cerebellum_for_register_to_orig)
+            .combine(transformation_and_t1_for_transformation_to_orig_bundles, by: 0)
+            .set{bundles_for_register}
+
+        trk_plausible_for_register_plausible_to_orig
+            .concat(trk_unplausible_for_register_to_orig)
             .combine(transformation_and_t1_for_transformation_to_orig, by: 0)
             .set{trks_for_register}
       }
@@ -2135,7 +2143,7 @@ process Register_to_orig{
   cpus 1
 
   input:
-    tuple sid, file(trk), file(t1), file(transfo), file(deformation) from trks_for_register
+    set sid, file(trk), file(t1), file(transfo), file(deformation) from trks_for_register
 
   output:
     set sid, "${sid}__*_${params.orig_space}.trk"
@@ -2146,5 +2154,43 @@ process Register_to_orig{
   script:
   """
     scil_apply_transform_to_tractogram.py ${trk} ${t1} ${transfo}  ${trk.getSimpleName().replaceAll("mni_space", "orig_space")}.trk --in_deformation ${deformation} --reverse_operation --keep_invalid
+  """
+}
+
+process Register_bundles_to_orig{
+  publishDir = params.final_output_bundles_orig_space
+  cpus 1
+
+  input:
+    set sid, file(trk), file(t1), file(transfo), file(deformation) from bundles_for_register
+
+  output:
+    set sid, "${sid}__*_${params.orig_space}.trk"
+
+  when:
+    params.orig
+
+  script:
+  """
+    scil_apply_transform_to_tractogram.py ${trk} ${t1} ${transfo}  ${trk.getSimpleName().replaceAll("mni_space", "orig_space")}.trk --in_deformation ${deformation} --reverse_operation --keep_invalid
+  """
+}
+
+process Copy_t1_to_orig{
+  publishDir = params.final_output_orig_space
+  cpus 1
+
+  input:
+    tuple sid, file(t1) from t1s_for_copy_to_orig
+
+  output:
+    file("${sid}__t1_orig_space.nii.gz")
+
+  when:
+    params.orig
+
+  script:
+  """
+    cp ${t1} ${sid}__t1_orig_space.nii.gz
   """
 }
