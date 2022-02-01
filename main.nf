@@ -109,7 +109,7 @@ process Register_T1 {
     set sid, file(t1) from t1s_for_register
 
     output:
-    set sid, "${sid}__output0GenericAffine.mat", "${sid}__output1Warp.nii.gz" into transformation_for_trk
+    set sid, "${sid}__output0GenericAffine.mat", "${sid}__1InverseWarp.nii.gz", "${sid}__1Warp.nii.gz" into transformation_for_trk
     file "${sid}__t1_${params.template_space}.nii.gz"
     file "${sid}__t1_bet_mask.nii.gz" optional true
     file "${sid}__t1_bet.nii.gz" optional true
@@ -165,14 +165,14 @@ process Transform_TRK {
     cpus 1
 
     input:
-    set sid, file(transfo), file(deformation), file(trk) from trk_and_template_for_transformation_to_template
+    set sid, file(transfo), file(inv_deformation), file(deformation) file(trk) from trk_and_template_for_transformation_to_template
 
     output:
     set sid, "${sid}_*_${params.template_space}.trk" into transformed_for_remove_out_not_JHU, transformed_for_unplausible
 
     script:
     """
-    scil_apply_transform_to_tractogram.py $trk ${params.rois_folder}${params.atlas.template} ${transfo} ${trk.getSimpleName()}_${params.template_space}.trk --remove_invalid --inverse --in_deformation ${deformation}
+    scil_apply_transform_to_tractogram.py $trk ${params.rois_folder}${params.atlas.template} ${transfo} ${trk.getSimpleName()}_${params.template_space}.trk --remove_invalid --inverse --in_deformation ${inv_deformation}
     """
 }
 
@@ -2162,7 +2162,7 @@ process Register_bundles_to_orig{
   cpus 1
 
   input:
-    set sid, file(trk), file(t1), file(transfo), file(deformation) from bundles_for_register
+    set sid, file(trk), file(t1), file(transfo), file(inv_deformation), file(deformation) from bundles_for_register
 
   output:
     set sid, "${sid}__*_${params.orig_space}.trk"
