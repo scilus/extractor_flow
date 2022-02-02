@@ -109,7 +109,7 @@ process Register_T1 {
     set sid, file(t1) from t1s_for_register
 
     output:
-    set sid, "${sid}__output0GenericAffine.mat", "${sid}__1InverseWarp.nii.gz", "${sid}__1Warp.nii.gz" into transformation_for_trk
+    set sid, "${sid}__output0GenericAffine.mat", "${sid}__output1InverseWarp.nii.gz", "${sid}__output1Warp.nii.gz" into transformation_for_trk
     file "${sid}__t1_${params.template_space}.nii.gz"
     file "${sid}__t1_bet_mask.nii.gz" optional true
     file "${sid}__t1_bet.nii.gz" optional true
@@ -149,14 +149,14 @@ transformation_for_trk.into{transformation_for_trk_registration;
 if (params.orig) {
     t1s_for_register_back
         .cross(transformation_for_join_with_t1)
-        .map { [ it[0][0], it[0][1], it[1][1], it[1][2] ] }
+        .map { [ it[0][0], it[0][1], it[1][1], it[1][2], it[1][3]] }
         .into{transformation_and_t1_for_transformation_to_orig;
              transformation_and_t1_for_transformation_to_orig_bundles}
 }
 
 transformation_for_trk_registration
     .cross(in_tractogram_for_transformation)
-    .map { [ it[0][0], it[0][1], it[0][2], it[1][1] ] }
+    .map { [ it[0][0], it[0][1], it[0][2], it[0][3], it[1][1] ] }
     .set{trk_and_template_for_transformation_to_template}
 
 
@@ -165,7 +165,7 @@ process Transform_TRK {
     cpus 1
 
     input:
-    set sid, file(transfo), file(inv_deformation), file(deformation) file(trk) from trk_and_template_for_transformation_to_template
+    set sid, file(transfo), file(inv_deformation), file(deformation), file(trk) from trk_and_template_for_transformation_to_template
 
     output:
     set sid, "${sid}_*_${params.template_space}.trk" into transformed_for_remove_out_not_JHU, transformed_for_unplausible
@@ -2143,7 +2143,7 @@ process Register_to_orig{
   cpus 1
 
   input:
-    set sid, file(trk), file(t1), file(transfo), file(deformation) from trks_for_register
+    set sid, file(trk), file(t1), file(transfo), file(inv_deformation), file(deformation) from trks_for_register
 
   output:
     set sid, "${sid}__*_${params.orig_space}.trk"
