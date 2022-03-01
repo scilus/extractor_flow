@@ -59,7 +59,6 @@ if (params.input){
     .fromPath("$root/**/*_t1.nii.gz",
               maxDepth:1)
              .map{[it.parent.name, it]}
-             .collect(sort:true)
              .into{t1s_for_register;
                    t1s_for_register_back;
                    t1s_for_copy_to_orig;
