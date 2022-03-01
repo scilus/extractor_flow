@@ -2093,6 +2093,7 @@ process Rename_cerebellum {
 }
 
 trks_for_register = Channel.empty()
+bundles_for_register = Channel.empty()
 
 if (params.orig){
     if (params.extended){
