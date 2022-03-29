@@ -168,7 +168,7 @@ process Transform_TRK {
     set sid, file(transfo), file(inv_deformation), file(deformation), file(trk) from trk_and_template_for_transformation_to_template
 
     output:
-    set sid, "${sid}_*_${params.template_space}.trk" into transformed_for_remove_out_not_JHU, transformed_for_unplausible
+    set sid, "${trk.getSimpleName()}_${params.template_space}.trk" into transformed_for_remove_out_not_JHU, transformed_for_unplausible
 
     script:
     """
