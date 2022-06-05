@@ -4,7 +4,6 @@ params.input = false
 params.help = false
 params.debug = true
 
-
 if(params.help) {
     usage = file("$baseDir/USAGE")
     cpu_count = Runtime.runtime.availableProcessors()
@@ -152,7 +151,7 @@ process Transform_TRK {
     set sid, file(transfo), file(trk) from trk_and_template_for_transformation
 
     output:
-    set sid, "${sid}_*_transformed.trk" into transformed_for_remove_out_not_JHU, transformed_for_unplausible
+    set sid, "${sid}_transformed.trk" into transformed_for_remove_out_not_JHU, transformed_for_unplausible
 
     script:
     """
