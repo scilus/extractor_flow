@@ -11,6 +11,9 @@ if(params.help) {
     bindings = ["rois_folder":"$params.rois_folder",
                 "filtering_lists_folder": "$params.filtering_lists_folder",
                 "run_bet":"$params.run_bet",
+                "orig":"$params.orig",
+                "extended":"$params.extended",
+                "keep_intermediate_steps":"$params.keep_intermediate_steps",
                 "cpu_count":"$cpu_count",
                 "processes_bet_register_t1":"$params.processes_bet_register_t1",
                 "processes_apply_registration":"$params.processes_apply_registration"]
@@ -20,6 +23,22 @@ if(params.help) {
     print template.toString()
     return
     }
+
+log.info "Extractor_flow pipeline"
+log.info "==================="
+log.info "Start time: $workflow.start"
+log.info ""
+
+workflow.onComplete {
+    log.info "Pipeline completed at: $workflow.complete"
+    log.info "Execution status: ${ workflow.success ? 'OK' : 'failed' }"
+    log.info "Execution duration: $workflow.duration"
+}
+
+if (!params.keep_intermediate_steps) {
+  log.info "Warning: You won't be able to resume your processing if you don't use the option --keep_intermediate_steps"
+  log.info ""
+}
 
 if (params.input){
     log.info "Input: $params.input"
@@ -40,16 +59,18 @@ if (params.input){
     .fromPath("$root/**/*_t1.nii.gz",
               maxDepth:1)
              .map{[it.parent.name, it]}
-             .into{t1s_for_register; t1s_for_transformation; check_t1s; t1s_empty}
-
-
+             .into{t1s_for_register;
+                   t1s_for_register_back;
+                   t1s_for_copy_to_orig;
+                   check_t1s;
+                   t1s_empty}
 }
 else {
     error "Error ~ Please use --input for the input data."
 }
 
 check_trks.count().into{check_subjects_number; number_subj_for_null_check}
-check_t1s.count().set{number_t1s_for_compare}
+check_t1s.count().into{number_t1s_for_compare; number_t1s_check_with_orig}
 
 number_subj_for_null_check
 .subscribe{a -> if (a == 0)
@@ -61,6 +82,12 @@ check_subjects_number
   .subscribe{a, b -> if (a != b && b > 0)
   error "Error ~ Some subjects have a T1w and others don't.\n" +
         "Please be sure to have the same acquisitions for all subjects."}
+
+if (params.orig){
+    number_t1s_check_with_orig
+      .subscribe{a -> if (a == 0)
+      error "Error ~ You cannot use --orig without having any T1w in the orig space."}
+}
 
 sides = params.sides?.tokenize(',')
 Channel.from(sides).into{sides_ipsi;
@@ -75,14 +102,15 @@ Channel.from(sides).into{sides_ipsi;
 /* BEGINNING TRANSFO */
 
 process Register_T1 {
+    publishDir = params.final_output_mni_space
     cpus params.processes_bet_register_t1
 
     input:
     set sid, file(t1) from t1s_for_register
 
     output:
-    set sid, "${sid}__output0GenericAffine.mat" into transformation_for_t1s, transformation_for_trk
-    file "${sid}__t1_transformed.nii.gz"
+    set sid, "${sid}__output0GenericAffine.mat", "${sid}__output1InverseWarp.nii.gz", "${sid}__output1Warp.nii.gz" into transformation_for_trk
+    file "${sid}__t1_${params.template_space}.nii.gz"
     file "${sid}__t1_bet_mask.nii.gz" optional true
     file "${sid}__t1_bet.nii.gz" optional true
 
@@ -99,8 +127,8 @@ process Register_T1 {
         scil_image_math.py convert bet/BrainExtractionMask.nii.gz ${sid}__t1_bet_mask.nii.gz --data_type uint8
         scil_image_math.py multiplication $t1 ${sid}__t1_bet_mask.nii.gz ${sid}__t1_bet.nii.gz
 
-        antsRegistrationSyN.sh -d 3 -m ${sid}__t1_bet.nii.gz -f ${params.rois_folder}${params.atlas.template} -n ${task.cpus} -o "${sid}__output" -t a
-        mv ${sid}__outputWarped.nii.gz ${sid}__t1_transformed.nii.gz
+        antsRegistrationSyN.sh -d 3 -m ${sid}__t1_bet.nii.gz -f ${params.rois_folder}${params.atlas.template} -n ${task.cpus} -o "${sid}__output" -t s
+        mv ${sid}__outputWarped.nii.gz ${sid}__t1_${params.template_space}.nii.gz
     """
     }
     else{
@@ -110,53 +138,41 @@ process Register_T1 {
         export OPENBLAS_NUM_THREADS=1
         export ANTS_RANDOM_SEED=1234
 
-        antsRegistrationSyN.sh -d 3 -m ${t1} -f ${params.rois_folder}${params.atlas.template} -n ${task.cpus} -o "${sid}__output" -t a
-        mv ${sid}__outputWarped.nii.gz ${sid}__t1_transformed.nii.gz
+        antsRegistrationSyN.sh -d 3 -m ${t1} -f ${params.rois_folder}${params.atlas.template} -n ${task.cpus} -o "${sid}__output" -t s
+        mv ${sid}__outputWarped.nii.gz ${sid}__t1_${params.template_space}.nii.gz
     """
     }
 }
-transformation_for_t1s
-    .cross(t1s_for_transformation)
-    .map { [ it[0][0], it[0][1], it[1][1] ] }
-    .set{nii_and_template_for_transformation}
 
-process Transform_NII {
-    cpus params.processes_apply_registration
-
-    input:
-    set sid, file(transfo), file(nii) from nii_and_template_for_transformation
-
-    output:
-    file "*_transformed.nii.gz"
-
-    script:
-    """
-    export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=$task.cpus
-    export OMP_NUM_THREADS=1
-    export OPENBLAS_NUM_THREADS=1
-    export ANTS_RANDOM_SEED=1234
-
-    antsApplyTransforms -d 3 -i $nii -r ${params.rois_folder}${params.atlas.template} -t $transfo -o ${nii.getSimpleName()}_transformed.nii.gz
-    """
+transformation_for_trk.into{transformation_for_trk_registration;
+                            transformation_for_join_with_t1}
+if (params.orig) {
+    t1s_for_register_back
+        .cross(transformation_for_join_with_t1)
+        .map { [ it[0][0], it[0][1], it[1][1], it[1][2], it[1][3]] }
+        .into{transformation_and_t1_for_transformation_to_orig;
+             transformation_and_t1_for_transformation_to_orig_bundles}
 }
 
-transformation_for_trk
+transformation_for_trk_registration
     .cross(in_tractogram_for_transformation)
-    .map { [ it[0][0], it[0][1], it[1][1] ] }
-    .set{trk_and_template_for_transformation}
+    .map { [ it[0][0], it[0][1], it[0][2], it[0][3], it[1][1] ] }
+    .set{trk_and_template_for_transformation_to_template}
+
 
 process Transform_TRK {
+    publishDir = params.final_output_mni_space
     cpus 1
 
     input:
-    set sid, file(transfo), file(trk) from trk_and_template_for_transformation
+    set sid, file(transfo), file(inv_deformation), file(deformation), file(trk) from trk_and_template_for_transformation_to_template
 
     output:
-    set sid, "${sid}_*_transformed.trk" into transformed_for_remove_out_not_JHU, transformed_for_unplausible
+    set sid, "${trk.getSimpleName()}_${params.template_space}.trk" into transformed_for_remove_out_not_JHU, transformed_for_unplausible
 
     script:
     """
-    scil_apply_transform_to_tractogram.py $trk ${params.rois_folder}${params.atlas.template} ${transfo} ${trk.getSimpleName()}_transformed.trk --remove_invalid --inverse
+    scil_apply_transform_to_tractogram.py $trk ${params.rois_folder}${params.atlas.template} ${transfo} ${trk.getSimpleName()}_${params.template_space}.trk --remove_invalid --inverse --in_deformation ${inv_deformation}
     """
 }
 
@@ -186,105 +202,32 @@ process Remove_invalid_streamlines {
     """
 }
 
-rm_invalid_for_remove_out_not_JHU.mix(transformed_for_remove_out_not_JHU).set{for_remove_out_not_JHU}
+rm_invalid_for_remove_out_not_JHU.mix(transformed_for_remove_out_not_JHU).set{for_major_filtering}
 
-process Remove_out_not_JHU {
+process Major_filtering {
     cpus 1
 
     input:
-      set sid, file(tractogram) from for_remove_out_not_JHU
+      set sid, file(tractogram) from for_major_filtering
 
     output:
-      set sid, "${sid}__wb_in_JHU.trk" into wb_for_rm_crossing_gyri
-      file "${sid}__wb_in_JHU.txt" optional true
-      set sid, "${sid}__wb_out_JHU.trk" optional true
-      file "${sid}__wb_out_JHU.txt" optional true
+      set sid, "${sid}/${tractogram.getSimpleName()}_filtered_filtered.trk" into wb_for_rm_end_in_cc_dwm
+
 
     script:
-    atlas=params.rois_folder+params.atlas.JHU
-    mode=params.mode.both_ends
-    criteria=params.criteria.include
-    out_extension='wb_in_JHU'
-    remaining_extension='wb_out_JHU'
-    basename="${sid}"
-
-    template "filter_with_atlas.sh"
-}
-
-process Remove_crossing_Gyri {
-  cpus 1
-
-  input:
-    set sid, file(tractogram) from wb_for_rm_crossing_gyri
-
-  output:
-   set sid, "${sid}__wb_rm_crossing_gyri.trk" into wb_for_pruning
-   file "${sid}__wb_rm_crossing_gyri.txt" optional true
-   set sid, "${sid}__wb_crossing_gyri.trk" optional true
-   file "${sid}__wb_crossing_gyri.txt" optional true
-
-   script:
-   atlas=params.rois_folder+params.atlas.shell_limits
-   mode="any"
-   criteria="exclude"
-   out_extension='wb_rm_crossing_gyri'
-   remaining_extension='wb_crossing_gyri'
-   basename="${sid}"
-
-   template "filter_with_atlas.sh"
-}
-
-/*
-Pruning min ${params.min_streaminline_lenght}mm
-*/
-process Pruning {
-  cpus 1
-
-  input:
-    set sid, file(tractogram) from wb_for_pruning
-
-  output:
-    set sid, "${sid}__wb_min${params.min_streaminline_lenght}.trk" into wb_for_rmloop
-    file "${sid}__wb_min${params.min_streaminline_lenght}.txt" optional true
-    set sid, "${sid}__wb_max${params.min_streaminline_lenght}.trk" optional true
-    file "${sid}__wb_max${params.min_streaminline_lenght}.txt" optional true
-
-  script:
-
     """
-    scil_filter_streamlines_by_length.py ${tractogram} --minL ${params.min_streaminline_lenght} \
-                                         --maxL ${params.max_streaminline_lenght} ${sid}__wb_min${params.min_streaminline_lenght}.trk \
-                                         -f --display_counts > ${sid}__wb_min${params.min_streaminline_lenght}.txt
-    if ${params.debug}
-    then
-      scil_streamlines_math.py difference ${tractogram} ${sid}__wb_min${params.min_streaminline_lenght}.trk ${sid}__wb_max${params.min_streaminline_lenght}.trk -f
-    fi
+      scil_filter_tractogram_anatomically.py ${tractogram} \
+        ${params.rois_folder}${params.atlas.JHU_8} \
+        ${sid} \
+        --minL ${params.min_streaminline_lenght} \
+        --maxL ${params.max_streaminline_lenght} \
+        -a ${params.loop_angle_threshold} \
+        --csf_bin ${params.rois_folder}${params.atlas.shell_limits} \
+        -f
     """
 }
 
-process remove_loops {
-  cpus 1
-
-  input:
-    set sid, file(wb_min20) from wb_for_rmloop
-
-  output:
-    set sid, "${sid}__wb_min20_noloop.trk" into wb_for_rm_end_in_cc_dwm
-    set sid, "${sid}__wb_loops.trk" optional true
-    file "${sid}__wb_min20_noloop.txt" optional true
-
-  script:
-
-    """
-    scil_detect_streamlines_loops.py ${wb_min20} ${sid}__wb_min20_noloop.trk \
-                                     -a ${params.loop_angle_threshold}  \
-                                     --looping_tractogram ${sid}__wb_loops.trk \
-                                     --display_counts > ${sid}__wb_min20_noloop.txt \
-                                     -f
-    """
-}
-
-process remove_ee_CC_DWM {
+process Remove_ee_CC_DWM {
   cpus 1
 
   input:
@@ -292,7 +235,7 @@ process remove_ee_CC_DWM {
 
   output:
     set sid, "${sid}__wb_clean01.trk" into wb_for_extract_end_in_cerebellum, wb_for_extract_first_unplausible
-    set sid, "${sid}__wb_no_In_CC_DWM.trk"
+    set sid, "${sid}__wb_no_In_CC_DWM.trk" optional true
     file "${sid}__wb_clean01.txt" optional true
     file "${sid}__wb_no_In_CC_DWM.txt" optional true
 
@@ -302,13 +245,17 @@ process remove_ee_CC_DWM {
                     --drawn_roi ${params.rois_folder}${params.atlas.cc} either_end exclude \
                     --drawn_roi ${params.rois_folder}${params.atlas.dwm} either_end exclude \
                     -f --display_count > ${sid}__wb_clean01.txt
+
+  if ($params.keep_intermediate_steps)
+  then
   scil_streamlines_math.py difference ${wb_min20_noloop} ${sid}__wb_clean01.trk ${sid}__wb_no_In_CC_DWM.trk -f
   scil_count_streamlines.py ${sid}__wb_no_In_CC_DWM.trk > ${sid}__wb_no_In_CC_DWM.txt
+  fi
   """
 }
 
 trk_for_extract_first_unplausible.join(wb_for_extract_first_unplausible).set{unplausible_streamlines}
-process extract_first_unplausible{
+process Extract_first_unplausible{
   cpus 1
 
   input:
@@ -325,7 +272,7 @@ process extract_first_unplausible{
   """
 }
 
-process extract_fornix{
+process Extract_fornix{
   cpus 1
 
   input:
@@ -345,7 +292,7 @@ process extract_fornix{
 }
 
 
-process extract_ee_cerebellum {
+process Extract_ee_cerebellum {
   cpus 1
 
   input:
@@ -364,12 +311,13 @@ process extract_ee_cerebellum {
   out_extension='wb_clean01_nocereb'
   remaining_extension='all_cerebellum'
   basename="${sid}"
+  keep=true
 
   template "filter_with_atlas.sh"
 }
 
 
-process extract_plausible_cerebellum {
+process Extract_plausible_cerebellum {
   cpus 1
 
   input:
@@ -391,16 +339,19 @@ process extract_plausible_cerebellum {
   scil_filter_tractogram.py ${tractogram} ${sid}__all_in_cerebellum_in_Midbrain.trk --filtering_list /filtering_lists/list_cerebellum/cerebellum_in_midbrain_filtering_list.txt -f
   scil_filter_tractogram.py ${tractogram} ${sid}__all_in_cerebellum_in_redN_and_Thal.trk --filtering_list /filtering_lists/list_cerebellum/cerebellum_in_rednucleus_and_thalamus_filtering_list.txt -f
   scil_streamlines_math.py concatenate ${sid}__all_in_*.trk ${sid}__all_cerebellum_plausibles.trk -f
+
+  if ${params.keep_intermediate_steps}
+  then
   scil_streamlines_math.py difference ${sid}__all_cerebellum.trk ${sid}__all_cerebellum_plausibles.trk ${sid}__all_cerebellum_unplausibles.trk -f
+  fi
   """
 }
-
 
 /*
   END Cerebellum
 */
 
-process extract_ee_brainstem {
+process Extract_ee_brainstem {
   cpus 1
 
   input:
@@ -419,6 +370,7 @@ process extract_ee_brainstem {
     out_extension='wb_clean02'
     remaining_extension='all_brainstem'
     basename="${sid}"
+    keep=true
 
     template "filter_with_atlas.sh"
 }
@@ -427,14 +379,14 @@ process extract_ee_brainstem {
   Brainstem
 */
 
-process extract_plausible_brainstem {
+process Extract_plausible_brainstem {
   cpus 1
 
   input:
     set sid, file(tractogram) from all_brainstem_for_extract_plausible
   output:
     set sid, "${sid}__all_brainstem_plausibles.trk" into brainstem_for_trk_plausible, brainstem_for_rename
-    file "${sid}__all_brainstem_unplausibles.trk"
+    file "${sid}__all_brainstem_unplausibles.trk" optional true
     file "${sid}__be_midbrain.trk"
     file "${sid}__be_medulla.trk"
     file "${sid}__be_pons.trk"
@@ -477,7 +429,11 @@ process extract_plausible_brainstem {
   rm -f ${sid}__*tmp_*.trk
 
   scil_streamlines_math.py concatenate ${sid}__be_*.trk ${sid}__ee_*.trk ${sid}__all_brainstem_plausibles.trk -f
+
+  if ${params.keep_intermediate_steps}
+  then
   scil_streamlines_math.py difference ${sid}__all_brainstem.trk ${sid}__all_brainstem_plausibles.trk ${sid}__all_brainstem_unplausibles.trk -f
+  fi
   """
 }
 
@@ -485,7 +441,7 @@ process extract_plausible_brainstem {
 Brain - Either end in CGM SWM
 */
 
-process remove_out_of_CGM_DWM {
+process Remove_out_of_CGM_DWM {
   cpus 1
 
   input:
@@ -493,7 +449,7 @@ process remove_out_of_CGM_DWM {
 
   output:
     set sid, "${sid}__wb_either_CGM_SWM.trk" into wb_for_extract_all_commissural
-    set sid, "${sid}__no_CGM_SWM.trk" into endNotInCGMSWI
+    set sid, "${sid}__no_CGM_SWM.trk" optional true
     file "${sid}__wb_either_CGM_SWM.txt" optional true
     file "${sid}__no_CGM_SWM.txt" optional true
 
@@ -504,11 +460,12 @@ process remove_out_of_CGM_DWM {
     out_extension='wb_either_CGM_SWM'
     remaining_extension='no_CGM_SWM'
     basename="${sid}"
+    keep="$params.keep_intermediate_steps"
 
     template "filter_with_atlas.sh"
 }
 
-process extract_all_commissural {
+process Extract_all_commissural {
   cpus 1
 
   input:
@@ -527,11 +484,12 @@ process extract_all_commissural {
   out_extension="wb_either_CGM_SWM_noCC"
   remaining_extension='tmp_CC'
   basename="${sid}"
+  keep=true
 
   template "filter_with_atlas.sh"
 }
 
-process split_CC_BG {
+process Split_CC_BG {
   cpus 1
 
   input:
@@ -549,11 +507,12 @@ process split_CC_BG {
   out_extension="contra_BG_" + "${side}"
   remaining_extension="notUsed"
   basename="${sid}"
+  keep=true
 
   template "filter_with_atlas.sh"
 }
 
-process first_cc_cleaning {
+process First_cc_cleaning {
   cpus 1
 
   input:
@@ -575,7 +534,7 @@ process first_cc_cleaning {
     --drawn_roi ${params.rois_folder}${params.atlas.midline} either_end exclude \
     --drawn_roi ${params.rois_folder}${params.atlas.allL} both_ends exclude \
     --drawn_roi ${params.rois_folder}${params.atlas.allR} both_ends exclude -f;
-  if ${params.debug}
+  if ${params.keep_intermediate_steps}
   then
     scil_streamlines_math.py difference ${tractogram} ${sid}__CC_Cx.trk ${sid}__CC_lost.trk # -CC_BG
     scil_count_streamlines.py ${sid}__CC_lost.trk > ${sid}__CC_lost.txt
@@ -607,6 +566,7 @@ process Split_no_CC_Asso_and_BG {
   out_extension="all_subcortical_from_CGM_SWM_noCC_f"
   remaining_extension='asso_noBG'
   basename="${sid}"
+  keep=true
 
   template "filter_with_atlas.sh"
 }
@@ -617,7 +577,7 @@ Channel.from(bg_list).into{bg_thal_list;
 /*
 BG THAL
 */
-process split_BG_Thal {
+process Split_BG_Thal {
   cpus 1
 
   input:
@@ -647,7 +607,7 @@ CuGWM_for_combine.concat(LGWM_for_combine).groupTuple(by:[0,1]).set{optic_radiat
 
 BG_ipsi_Thal_for_merge.groupTuple().map{it}.set{BG_ipsi_Thal_list_for_merge}
 
-process merge_BG_Thal{
+process Merge_BG_Thal{
   cpus 1
 
   input:
@@ -665,7 +625,7 @@ process merge_BG_Thal{
 /*
 BG PUT
 */
-process split_BG_Put {
+process Split_BG_Put {
   cpus 1
 
   input:
@@ -688,7 +648,7 @@ process split_BG_Put {
 
 BG_ipsi_Put_for_merge.groupTuple().map{it}.set{BG_ipsi_Put_list_for_merge}
 
-process merge_BG_Put{
+process Merge_BG_Put{
   cpus 1
 
   input:
@@ -707,7 +667,7 @@ process merge_BG_Put{
 BG CAUD
 */
 bg_caud_list=params.bg_caud_lists?.tokenize(',')
-process split_BG_Caud {
+process Split_BG_Caud {
   cpus 1
 
   input:
@@ -730,7 +690,7 @@ process split_BG_Caud {
 
 BG_ipsi_Caud_for_merge.groupTuple().map{it}.set{BG_ipsi_Caud_list_for_merge}
 
-process merge_BG_Caud{
+process Merge_BG_Caud{
   cpus 1
 
   input:
@@ -745,7 +705,7 @@ process merge_BG_Caud{
   """
 }
 
-process split_asso_in_hemi {
+process Split_asso_in_hemi {
   cpus 1
 
   input:
@@ -769,6 +729,7 @@ process split_asso_in_hemi {
   out_extension="asso_${side}"
   remaining_extension="asso_${side}_lost"
   basename="${sid}"
+  keep=true
 
   template "filter_with_atlas.sh"
 }
@@ -777,7 +738,7 @@ process split_asso_in_hemi {
 Extracting U-shaped and streamlines restricted to Cortical GM and removing them from asso
 */
 
-process split_ushape_CGM_asso {
+process Split_ushape_CGM_asso {
   cpus 1
 
   input:
@@ -818,7 +779,7 @@ process split_ushape_CGM_asso {
 
     scil_streamlines_math.py concatenate ${sid}__asso_DWM_${side}.trk ${sid}__asso_SWM_${side}.trk ${sid}__asso_f_${side}.trk -f
 
-    if ${params.debug}
+    if ${params.keep_intermediate_steps}
     then
       scil_count_streamlines.py ${sid}__asso_only_in_CGM_${side}.trk > ${sid}__asso_only_in_CGM_${side}.txt
       scil_count_streamlines.py ${sid}__asso_Ushape_${side}.trk > ${sid}__asso_Ushape_${side}.txt
@@ -839,7 +800,7 @@ process Remove_Unplausible_Long_Range_Asso {
 
   output:
     set sid, val(side), "${sid}__asso_all_intra_inter_${side}.trk" into asso_all_intra_inter
-    set sid, "${sid}__asso_lost2_${side}.trk"
+    set sid, "${sid}__asso_lost2_${side}.trk" optional true
     file "${sid}__asso_all_intra_inter_${side}.txt" optional true
     file "${sid}__asso_lost2_${side}.txt" optional true
 
@@ -850,6 +811,7 @@ process Remove_Unplausible_Long_Range_Asso {
   out_extension="asso_all_intra_inter_${side}"
   remaining_extension="asso_lost2_${side}"
   basename="${sid}"
+  keep="$params.keep_intermediate_steps"
 
   template "filter_with_atlas.sh"
 }
@@ -997,7 +959,7 @@ script:
 
 asso_ventral_f_t_list=params.asso_ventral_f_t_lists?.tokenize(',')
 
-process asso_ventral_f_t {
+process Asso_ventral_f_t {
   cpus 1
 
   input:
@@ -1021,7 +983,7 @@ process asso_ventral_f_t {
 
 asso_all_intra_inter_ventral_f_t_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_all_intra_inter_ventral_f_t_list_for_merge}
 
-process merge_asso_ventral_f_t {
+process Merge_asso_ventral_f_t {
   cpus 1
 
   input:
@@ -1038,7 +1000,7 @@ process merge_asso_ventral_f_t {
 
 asso_ventral_f_o_f_p_lists=params.asso_ventral_f_o_f_p_lists?.tokenize(',')
 
-process asso_ventral_f_o_f_p {
+process Asso_ventral_f_o_f_p {
   cpus 1
 
   input:
@@ -1056,13 +1018,14 @@ process asso_ventral_f_o_f_p {
     out_extension="asso_F_${asso_list}_${side}"
     remaining_extension="asso_lost_${asso_list}_${side}"
     basename="${sid}"
+    keep="$params.keep_intermediate_steps"
 
     template "filter_with_list.sh"
 }
 
 asso_all_intra_inter_ventral_all_f_t_for_merge.groupTuple(by:[0,1]).join(asso_all_intra_inter_ventral_all_f_o_f_p_for_merge.groupTuple(by:[0,1]), by:[0,1]).map{it.flatten().toList()}.set{asso_all_intra_inter_ventral_all_for_merge}
 
-process merge_asso_ventral {
+process Merge_asso_ventral {
   cpus 1
 
   input:
@@ -1077,7 +1040,7 @@ process merge_asso_ventral {
   """
 }
 
-process split_asso_ventral_ifof_uf {
+process Split_asso_ventral_ifof_uf {
   cpus 1
 
   input:
@@ -1103,7 +1066,7 @@ process split_asso_ventral_ifof_uf {
 
 asso_dorsal_f_p_lists=params.asso_dorsal_f_p_lists?.tokenize(',')
 
-process asso_dorsal_f_p {
+process Asso_dorsal_f_p {
   cpus 1
 
   input:
@@ -1128,7 +1091,7 @@ process asso_dorsal_f_p {
 
 asso_all_intra_inter_dorsal_f_p_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_all_intra_inter_dorsal_f_p_list_for_merge}
 
-process merge_asso_dorsal_f_p {
+process Merge_asso_dorsal_f_p {
   cpus 1
 
   input:
@@ -1145,7 +1108,7 @@ process merge_asso_dorsal_f_p {
 
 asso_dorsal_f_o_f_t_list=params.asso_dorsal_f_o_f_t_lists?.tokenize(',')
 
-process asso_dorsal_f_o_f_t {
+process Asso_dorsal_f_o_f_t {
   cpus 1
 
   input:
@@ -1173,7 +1136,7 @@ asso_all_intra_inter_dorsal_all_f_O_for_filter.filter{it[2]=='O_dorsal_f'}.set{a
 
 asso_all_intra_inter_dorsal_all_f_p_for_merge.groupTuple(by:[0,1]).join(asso_all_intra_inter_dorsal_all_f_o_f_t_for_merge.groupTuple(by:[0,1]), by:[0,1]).map{it.flatten().toList()}.set{asso_all_intra_inter_dorsal_all_for_merge}
 
-process merge_asso_dorsal {
+process Merge_asso_dorsal {
   cpus 1
 
   input:
@@ -1194,7 +1157,7 @@ process merge_asso_dorsal {
 
 asso_p_o_list=params.asso_p_o_lists?.tokenize(',')
 
-process asso_p_o {
+process Asso_p_o {
   cpus 1
 
   input:
@@ -1218,7 +1181,7 @@ process asso_p_o {
 
 asso_intra_inter_p_o_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_intra_inter_p_o_list_for_merge}
 
-process merge_p_o {
+process Merge_p_o {
   cpus 1
 
   input:
@@ -1239,7 +1202,7 @@ process merge_p_o {
 
 asso_p_t_list=params.asso_p_t_lists?.tokenize(',')
 
-process asso_p_t {
+process Asso_p_t {
   cpus 1
 
   input:
@@ -1263,7 +1226,7 @@ process asso_p_t {
 
 asso_intra_inter_p_t_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_intra_inter_p_t_list_for_merge}
 
-process merge_p_t {
+process Merge_p_t {
   cpus 1
 
   input:
@@ -1284,7 +1247,7 @@ process merge_p_t {
 
 asso_o_t_list=params.asso_o_t_lists?.tokenize(',')
 
-process asso_o_t {
+process Asso_o_t {
   cpus 1
 
   input:
@@ -1308,7 +1271,7 @@ process asso_o_t {
 
 asso_intra_inter_o_t_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_intra_inter_o_t_list_for_merge}
 
-process merge_o_t {
+process Merge_o_t {
   cpus 1
 
   input:
@@ -1330,7 +1293,7 @@ process merge_o_t {
 
 asso_ins_list=params.asso_ins_lists?.tokenize(',')
 
-process asso_ins {
+process Asso_ins {
   cpus 1
 
   input:
@@ -1354,7 +1317,7 @@ process asso_ins {
 
 asso_intra_inter_ins_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_intra_inter_ins_list_for_merge}
 
-process merge_ins {
+process Merge_ins {
   cpus 1
 
   input:
@@ -1373,7 +1336,7 @@ process merge_ins {
   ASSO CING
 */
 
-process asso_Cing {
+process Asso_Cing {
   cpus 1
 
   input:
@@ -1400,7 +1363,7 @@ process asso_Cing {
 */
 
 asso_frontal_be_list=params.asso_frontal_be_lists?.tokenize(',')
-process asso_be_frontal_gyrus {
+process Asso_be_frontal_gyrus {
   cpus 1
 
   input:
@@ -1418,7 +1381,7 @@ process asso_be_frontal_gyrus {
 }
 
 asso_frontal_be_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_frontal_be_list_for_merge}
-process merge_asso_be_frontal_gyrus{
+process Merge_asso_be_frontal_gyrus{
   cpus 1
 
   input:
@@ -1439,7 +1402,7 @@ process merge_asso_be_frontal_gyrus{
 
 asso_frontal_ee_list = Channel.from(['SFG_MFG', 70],['SFG_IFG', 70], ['SFG_PrCG', 90], ['SFG_FrOrbG', 70], ['MFG_IFG', 70], ['MFG_PrCG', 110], ['MFG_FrOrbG', 60], ['IFG_PrCG', 110], ['IFG_FrOrbG', 60])
 asso_all_intra_inter_for_ee_frontal_filtering.combine(asso_frontal_ee_list).set{asso_frontal_ee_for_extract}
-process asso_ee_frontal_gyrus {
+process Asso_ee_frontal_gyrus {
   cpus 1
 
   input:
@@ -1457,7 +1420,7 @@ process asso_ee_frontal_gyrus {
 }
 
 asso_frontal_ee_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_frontal_ee_list_for_merge}
-process merge_asso_ee_frontal_gyrus{
+process Merge_asso_ee_frontal_gyrus{
   cpus 1
 
   input:
@@ -1477,7 +1440,7 @@ process merge_asso_ee_frontal_gyrus{
 */
 
 asso_occipital_be_list=params.asso_occipital_be_lists?.tokenize(',')
-process asso_be_occipital_gyrus {
+process Asso_be_occipital_gyrus {
   cpus 1
 
   input:
@@ -1495,7 +1458,7 @@ process asso_be_occipital_gyrus {
 }
 
 asso_occipital_be_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_occipital_be_list_for_merge}
-process merge_asso_be_occipital_gyrus{
+process Merge_asso_be_occipital_gyrus{
   cpus 1
 
   input:
@@ -1516,7 +1479,7 @@ process merge_asso_be_occipital_gyrus{
 
 asso_occipital_ee_list = Channel.from(['MOG_SOG', 60],['MOG_IOG', 50], ['MOG_CuG', 60], ['SOG_CuG', 30], ['CuG_LG', 60])
 asso_all_intra_inter_for_ee_occipital_filtering.combine(asso_occipital_ee_list).set{asso_occipital_ee_for_extract}
-process asso_ee_occipital_gyrus {
+process Asso_ee_occipital_gyrus {
   cpus 1
 
   input:
@@ -1534,7 +1497,7 @@ process asso_ee_occipital_gyrus {
 }
 
 asso_occipital_ee_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_occipital_ee_list_for_merge}
-process merge_asso_ee_occipital_gyrus{
+process Merge_asso_ee_occipital_gyrus{
   cpus 1
 
   input:
@@ -1554,7 +1517,7 @@ process merge_asso_ee_occipital_gyrus{
 */
 
 asso_parietal_be_list=params.asso_parietal_be_lists?.tokenize(',')
-process asso_be_parietal_gyrus {
+process Asso_be_parietal_gyrus {
   cpus 1
 
   input:
@@ -1572,7 +1535,7 @@ process asso_be_parietal_gyrus {
 }
 
 asso_parietal_be_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_parietal_be_list_for_merge}
-process merge_asso_be_parietal_gyrus{
+process Merge_asso_be_parietal_gyrus{
   cpus 1
 
   input:
@@ -1593,7 +1556,7 @@ process merge_asso_be_parietal_gyrus{
 
 asso_parietal_ee_list = Channel.from(['SPG_PoCG', 50], ['SPG_AG', 80], ['SPG_SMG', 70], ['SPG_PrCuG', 50], ['AG_PoCG', 10000], ['AG_SMG', 90], ['AG_PrCuG', 90] , ['SMG_PoCG', 60], ['SMG_PrCuG',100], ['PoCG_PrCuG', 80])
 asso_all_intra_inter_for_ee_parietal_filtering.combine(asso_parietal_ee_list).set{asso_parietal_ee_for_extract}
-process asso_ee_parietal_gyrus {
+process Asso_ee_parietal_gyrus {
   cpus 1
 
   input:
@@ -1611,7 +1574,7 @@ process asso_ee_parietal_gyrus {
 }
 
 asso_parietal_ee_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_parietal_ee_list_for_merge}
-process merge_asso_ee_parietal_gyrus{
+process Merge_asso_ee_parietal_gyrus{
   cpus 1
 
   input:
@@ -1631,7 +1594,7 @@ process merge_asso_ee_parietal_gyrus{
 */
 
 asso_temporal_be_list=params.asso_temporal_be_lists?.tokenize(',')
-process asso_be_temporal_gyrus {
+process Asso_be_temporal_gyrus {
   cpus 1
 
   input:
@@ -1649,7 +1612,7 @@ process asso_be_temporal_gyrus {
 }
 
 asso_temporal_be_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_temporal_be_list_for_merge}
-process merge_asso_be_temporal_gyrus{
+process Merge_asso_be_temporal_gyrus{
   cpus 1
 
   input:
@@ -1670,7 +1633,7 @@ process merge_asso_be_temporal_gyrus{
 
 asso_temporal_ee_list = Channel.from(['STG_MTG', 60], ['STG_ITG',80], ['STG_Tpole',110], ['MTG_ITG',60], ['MTG_Tpole', 100000], ['ITG_Tpole', 60])
 asso_all_intra_inter_for_ee_temporal_filtering.combine(asso_temporal_ee_list).set{asso_temporal_ee_for_extract}
-process asso_ee_temporal_gyrus {
+process Asso_ee_temporal_gyrus {
   cpus 1
 
   input:
@@ -1688,7 +1651,7 @@ process asso_ee_temporal_gyrus {
 }
 
 asso_temporal_ee_for_merge.groupTuple(by:[0,1]).map{it}.set{asso_temporal_ee_list_for_merge}
-process merge_asso_ee_temporal_gyrus{
+process Merge_asso_ee_temporal_gyrus{
   cpus 1
 
   input:
@@ -1705,41 +1668,44 @@ process merge_asso_ee_temporal_gyrus{
 
 fornix_for_trk_plausible.concat(cerebellum_for_trk_plausible,brainstem_for_trk_plausible,BG_ipsi_Thal_for_trk_plausible,BG_ipsi_Put_for_trk_plausible,BG_ipsi_Caud_for_trk_plausible,asso_u_shape_for_trk_plausible,CC_homo_for_trk_plausible,asso_all_dorsal_for_trk_plausible,asso_all_ventral_for_trk_plausible,all_P_O_for_trk_plausible,all_P_T_for_trk_plausible,all_O_T_for_trk_plausible,Ins_for_trk_plausible,Cing_for_trk_plausible,asso_all_intraF_be_for_trk_plausible,asso_all_intraF_ee_for_trk_plausible,asso_all_intraP_be_for_trk_plausible,asso_all_intraP_ee_for_trk_plausible,asso_all_intraO_be_for_trk_plausible,asso_all_intraO_ee_for_trk_plausible,asso_all_intraT_be_for_trk_plausible,asso_all_intraT_ee_for_trk_plausible).groupTuple(by: 0).set{merge_trk_plausible}
 
-process merge_trk_plausible{
+process Merge_trk_plausible{
+  publishDir = params.final_output_mni_space
   cpus 1
 
   input:
     set sid, file(tractogram) from merge_trk_plausible
 
   output:
-    set sid, "${sid}__plausible.trk" into plausible_for_extract_unplausible
+    set sid, "${sid}__plausible_${params.template_space}.trk" into plausible_for_extract_unplausible, trk_plausible_for_register_plausible_to_orig
 
   script:
   """
-    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__plausible.trk -f
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__plausible_${params.template_space}.trk -f
   """
 }
 
 trk_for_extract_unplausible.join(plausible_for_extract_unplausible).set{for_trk_unplausible}
 
-process extract_trk_unplausible{
+process Extract_trk_unplausible{
+  publishDir = params.final_output_mni_space
   cpus 1
 
   input:
     set sid, file(trk01), file(trk02) from for_trk_unplausible
   output:
-    set sid, "${sid}__unplausible.trk"
+    set sid, "${sid}__unplausible_${params.template_space}.trk" into trk_unplausible_for_register_to_orig
 
   script:
   """
-    scil_streamlines_math.py difference ${trk01} ${trk02} ${sid}__unplausible.trk -f
+    scil_streamlines_math.py difference ${trk01} ${trk02} ${sid}__unplausible_${params.template_space}.trk --ignore_invalid -f
   """
 }
 
 /*
 RENAME CC CC_Homotopic
 */
-process rename_cc_homotopic {
+process Rename_cc_homotopic {
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
@@ -1750,112 +1716,135 @@ process rename_cc_homotopic {
     set sid, val(list), file(trk05) from CC_Homotopic_insular_for_rename
     set sid, val(list), file(trk06) from CC_Homotopic_cingulum_for_rename
   output:
-    set sid, "${sid}__cc_homotopic_frontal.trk"
-    set sid, "${sid}__cc_homotopic_occipital.trk"
-    set sid, "${sid}__cc_homotopic_temporal.trk"
-    set sid, "${sid}__cc_homotopic_parietal.trk"
-    set sid, "${sid}__cc_homotopic_insular.trk"
-    set sid, "${sid}__cc_homotopic_cingulum.trk"
+    set sid, "${sid}__cc_homotopic_frontal_${params.template_space}.trk" into cc_homotopic_frontal_for_register_to_orig
+    set sid, "${sid}__cc_homotopic_occipital_${params.template_space}.trk" into cc_homotopic_occipital_for_register_to_orig
+    set sid, "${sid}__cc_homotopic_temporal_${params.template_space}.trk" into cc_homotopic_temporal_for_register_to_orig
+    set sid, "${sid}__cc_homotopic_parietal_${params.template_space}.trk" into cc_homotopic_parietal_for_register_to_orig
+    set sid, "${sid}__cc_homotopic_insular_${params.template_space}.trk" into cc_homotopic_insular_for_register_to_orig
+    set sid, "${sid}__cc_homotopic_cingulum_${params.template_space}.trk" into cc_homotopic_cingulum_for_register_to_orig
+
+  when:
+    params.extended
 
   script:
   """
-  scil_streamlines_math.py lazy_concatenate ${trk01} "${sid}__cc_homotopic_frontal.trk" -f
-  scil_streamlines_math.py lazy_concatenate ${trk02} "${sid}__cc_homotopic_occipital.trk" -f
-  scil_streamlines_math.py lazy_concatenate ${trk03} "${sid}__cc_homotopic_temporal.trk" -f
-  scil_streamlines_math.py lazy_concatenate ${trk04} "${sid}__cc_homotopic_parietal.trk" -f
-  cp ${trk05} ${sid}__cc_homotopic_insular.trk -f
-  cp ${trk06} ${sid}__cc_homotopic_cingulum.trk -f
+  scil_streamlines_math.py lazy_concatenate ${trk01} "${sid}__cc_homotopic_frontal_${params.template_space}.trk" -f
+  scil_streamlines_math.py lazy_concatenate ${trk02} "${sid}__cc_homotopic_occipital_${params.template_space}.trk" -f
+  scil_streamlines_math.py lazy_concatenate ${trk03} "${sid}__cc_homotopic_temporal_${params.template_space}.trk" -f
+  scil_streamlines_math.py lazy_concatenate ${trk04} "${sid}__cc_homotopic_parietal_${params.template_space}.trk" -f
+  cp ${trk05} ${sid}__cc_homotopic_insular_${params.template_space}.trk -f
+  cp ${trk06} ${sid}__cc_homotopic_cingulum_${params.template_space}.trk -f
   """
 }
 
 /*
 RENAME CORTICO_STRIATE
 */
-BG_ipsi_Caud_for_rename.concat(BG_ipsi_Put_for_rename).groupTuple(by:[0,1]).set{cortico_striate_for_rename}
-process rename_cortico_striate {
+BG_ipsi_Caud_for_rename.concat(BG_ipsi_Put_for_rename).groupTuple(by:[0,1]).set{corticostriate_for_rename}
+process Rename_cortico_striate {
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
-    set sid, val(side), file(tractogram) from cortico_striate_for_rename
+    set sid, val(side), file(tractogram) from corticostriate_for_rename
 
   output:
-    set sid, "${sid}__corticostriatal_${side}.trk"
+    set sid, "${sid}__corticostriatal_${side}_${params.template_space}.trk" into corticostriatal_for_register_to_orig
+
+  when:
+    params.extended
 
   script:
   """
-    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__corticostriatal_${side}.trk -f
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__corticostriatal_${side}_${params.template_space}.trk -f
   """
 }
 
 /*
 RENAME Corona radiata
 */
-process rename_coronaradiata {
+process Rename_coronaradiata {
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
     set sid, val(side), file(tractogram) from BG_ipsi_Thal_for_rename
 
   output:
-    set sid, val(side), "${sid}__coronaradiata_${side}.trk"
+    set sid, "${sid}__coronaradiata_${side}_${params.template_space}.trk" into coronaradiata_for_register_to_orig
+
+  when:
+    params.extended
 
   script:
   """
-    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__coronaradiata_${side}.trk -f
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__coronaradiata_${side}_${params.template_space}.trk -f
   """
 }
 
 /*
 RENAME OPTICAL RADIATION
 */
-process rename_optical_radiation {
+process Rename_optical_radiation {
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
     set sid, val(side), val(list), file(tractogram) from optic_radiation_for_rename
 
   output:
-    set sid, "${sid}__optical_radiation_${side}.trk"
+    set sid, "${sid}__optical_radiation_${side}_${params.template_space}.trk" into optical_radiation_for_register_to_orig
+
+  when:
+    params.extended
 
   script:
   """
-    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__optical_radiation_${side}.trk -f
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__optical_radiation_${side}_${params.template_space}.trk -f
   """
 }
 
 /*
 RENAME U SHAPE
 */
-process rename_ushape {
+process Rename_ushape {
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
     set sid, val(side), file(tractogram) from asso_u_shape_for_rename
 
   output:
-    set sid, "${sid}__ushape_${side}.trk"
+    set sid, "${sid}__ushape_${side}_${params.template_space}.trk" into ushape_for_register_to_orig
+
+  when:
+    params.extended
 
   script:
   """
-    cp ${tractogram} ${sid}__ushape_${side}.trk
+    cp ${tractogram} ${sid}__ushape_${side}_${params.template_space}.trk
   """
 }
 
 /*
 RENAME CING
 */
-process rename_cing {
+process Rename_cing {
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
     set sid, val(side), file(tractogram) from Cing_for_rename
 
   output:
-    set sid, "${sid}__cing_${side}.trk"
+    set sid, "${sid}__cing_${side}_${params.template_space}.trk" into cing_for_register_to_orig
+
+  when:
+    params.extended
 
   script:
   """
-    cp ${tractogram} ${sid}__cing_${side}.trk
+    cp ${tractogram} ${sid}__cing_${side}_${params.template_space}.trk
   """
 }
 
@@ -1863,60 +1852,73 @@ process rename_cing {
 RENAME SLF
 */
 asso_all_intra_inter_dorsal_all_f_O_for_rename.concat(asso_all_intra_inter_dorsal_f_p_for_rename).groupTuple(by:[0,1]).set{slf_for_rename}
-process rename_slf {
+process Rename_slf {
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
     set sid, val(side), val(list), file(tractogram) from slf_for_rename
 
   output:
-    set sid, "${sid}__slf_${side}.trk"
+    set sid, "${sid}__slf_${side}_${params.template_space}.trk" into slf_for_register_to_orig
+
+  when:
+    params.extended
 
   script:
   """
-    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__slf_${side}.trk -f
+    scil_streamlines_math.py lazy_concatenate ${tractogram} ${sid}__slf_${side}_${params.template_space}.trk -f
   """
 }
 
 /*
 RENAME AF
 */
-process rename_af {
+process Rename_af {
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
     set sid, val(side), asso_list, file(tractogram) from asso_all_intra_inter_dorsal_all_f_T_for_rename
 
   output:
-    set sid, "${sid}__af_${side}.trk"
+    set sid, "${sid}__af_${side}_${params.template_space}.trk" into af_for_register_to_orig
+
+  when:
+    params.extended
 
   script:
   """
-    cp ${tractogram} ${sid}__af_${side}.trk -f
+    cp ${tractogram} ${sid}__af_${side}_${params.template_space}.trk -f
   """
 }
 
 /*
 RENAME Cortico-pontine_F
 */
-process rename_corticopontine_F {
+process Rename_corticopontine_F {
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
     set sid, file(tractogram) from brainstem_corticopontine_frontal_for_rename
     each side from side_corticopontineF
   output:
-    set sid, "${sid}__corticopontine_frontal_${side}.trk"
+    set sid, "${sid}__corticopontine_frontal_${side}_${params.template_space}.trk" into corticopontine_frontal_for_register_to_orig
+
+  when:
+    params.extended
 
   script:
   """
-  scil_filter_tractogram.py ${tractogram} ${sid}__corticopontine_frontal_${side}.trk --drawn_roi ${params.rois_folder}${params.atlas.frontal_side}${side}.nii.gz either_end include -f
+  scil_filter_tractogram.py ${tractogram} ${sid}__corticopontine_frontal_${side}_${params.template_space}.trk --drawn_roi ${params.rois_folder}${params.atlas.frontal_side}${side}.nii.gz either_end include -f
   """
 }
 /*
 RENAME cortico-pontine_POT
 */
-process rename_corticopontine_POT {
+process Rename_corticopontine_POT {
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
@@ -1924,18 +1926,22 @@ process rename_corticopontine_POT {
     each side from side_corticopontinePOT
 
   output:
-    set sid, "${sid}__corticopontine_POT_${side}.trk"
+    set sid, "${sid}__corticopontine_POT_${side}_${params.template_space}.trk" into corticopontine_POT_for_register_to_orig
+
+  when:
+    params.extended
 
   script:
   """
-    scil_filter_tractogram.py ${tractogram} ${sid}__corticopontine_POT_${side}.trk --drawn_roi ${params.rois_folder}${params.atlas.parieto_temporo_occipital_side}${side}.nii.gz either_end include -f
+    scil_filter_tractogram.py ${tractogram} ${sid}__corticopontine_POT_${side}_${params.template_space}.trk --drawn_roi ${params.rois_folder}${params.atlas.parieto_temporo_occipital_side}${side}.nii.gz either_end include -f
   """
 }
 
 /*
 RENAME Pyramidal tract (CST)
 */
-process rename_cst {
+process Rename_cst {
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
@@ -1943,118 +1949,249 @@ process rename_cst {
     each side from side_cst
 
   output:
-    set sid, "${sid}__cst_${side}.trk"
+    set sid, "${sid}__cst_${side}_${params.template_space}.trk" into cst_for_register_to_orig
+
+  when:
+    params.extended
 
   script:
   """
-    scil_filter_tractogram.py ${tractogram} ${sid}__cst_${side}.trk --drawn_roi ${params.rois_folder}${params.atlas.fronto_parietal_side}${side}.nii.gz either_end include -f
+    scil_filter_tractogram.py ${tractogram} ${sid}__cst_${side}_${params.template_space}.trk --drawn_roi ${params.rois_folder}${params.atlas.fronto_parietal_side}${side}.nii.gz either_end include -f
   """
 }
 
 /*
 RENAME fornix
 */
-process rename_fornix {
+process Rename_fornix {
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
     set sid, file(tractogram) from fornix_for_rename
 
   output:
-    set sid, "${sid}__fornix.trk"
+    set sid, "${sid}__fornix_${params.template_space}.trk" into fornix_for_register_to_orig
+
+  when:
+    params.extended
 
   script:
   """
-    cp ${tractogram} ${sid}__fornix.trk -f
+    cp ${tractogram} ${sid}__fornix_${params.template_space}.trk -f
   """
 }
 
 /*
 RENAME IFOF
 */
-process rename_ifof {
+process Rename_ifof {
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
     set sid, val(side), file(tractogram) from asso_IFOF_for_rename
 
   output:
-    set sid, "${sid}__ifof_${side}.trk"
+    set sid, "${sid}__ifof_${side}_${params.template_space}.trk" into ifof_for_register_to_orig
+
+  when:
+    params.extended
 
   script:
   """
-    cp ${tractogram} ${sid}__ifof_${side}.trk -f
+    cp ${tractogram} ${sid}__ifof_${side}_${params.template_space}.trk -f
   """
 }
 
 /*
 RENAME UF
 */
-process rename_uf {
+process Rename_uf {
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
     set sid, val(side), file(tractogram) from asso_UF_for_rename
 
   output:
-    set sid, "${sid}__uf_${side}.trk"
+    set sid, "${sid}__uf_${side}_${params.template_space}.trk" into uf_for_register_to_orig
+
+  when:
+    params.extended
 
   script:
   """
-    cp ${tractogram} ${sid}__uf_${side}.trk -f
+    cp ${tractogram} ${sid}__uf_${side}_${params.template_space}.trk -f
   """
 }
 
 /*
 RENAME ILF
 */
-process rename_ilf {
+process Rename_ilf {
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
     set sid, val(side), file(tractogram) from all_O_T_for_rename
 
   output:
-    set sid, "${sid}__ilf_${side}.trk"
+    set sid, "${sid}__ilf_${side}_${params.template_space}.trk" into ilf_for_register_to_orig
+
+  when:
+    params.extended
 
   script:
   """
-    cp ${tractogram} ${sid}__ilf_${side}.trk -f
+    cp ${tractogram} ${sid}__ilf_${side}_${params.template_space}.trk -f
   """
 }
 
 /*
 RENAME BRAINSTEM
 */
-process rename_brainstem {
+process Rename_brainstem {
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
     set sid, file(tractogram) from brainstem_for_rename
 
   output:
-    set sid, "${sid}__brainstem.trk"
+    set sid, "${sid}__brainstem_${params.template_space}.trk" into brainstem_for_register_to_orig
+
+  when:
+    params.extended
 
   script:
   """
-    cp ${tractogram} ${sid}__brainstem.trk -f
+    cp ${tractogram} ${sid}__brainstem_${params.template_space}.trk -f
   """
 }
 
 /*
 RENAME CEREBELLUM
 */
-process rename_cerebellum {
+process Rename_cerebellum {
+  publishDir = params.final_output_bundles_mni_space
   cpus 1
 
   input:
     set sid, file(tractogram) from cerebellum_for_rename
 
   output:
-    set sid, "${sid}__cerebellum.trk"
+    set sid, "${sid}__cerebellum_${params.template_space}.trk" into cerebellum_for_register_to_orig
+
+  when:
+    params.extended
 
   script:
   """
-    cp ${tractogram} ${sid}__cerebellum.trk -f
+    cp ${tractogram} ${sid}__cerebellum_${params.template_space}.trk -f
+  """
+}
+
+trks_for_register = Channel.empty()
+bundles_for_register = Channel.empty()
+
+if (params.orig){
+    if (params.extended){
+        cc_homotopic_frontal_for_register_to_orig
+            .concat(cc_homotopic_occipital_for_register_to_orig)
+            .concat(cc_homotopic_temporal_for_register_to_orig)
+            .concat(cc_homotopic_parietal_for_register_to_orig)
+            .concat(cc_homotopic_insular_for_register_to_orig)
+            .concat(cc_homotopic_cingulum_for_register_to_orig)
+            .concat(corticostriatal_for_register_to_orig)
+            .concat(coronaradiata_for_register_to_orig)
+            .concat(optical_radiation_for_register_to_orig)
+            .concat(ushape_for_register_to_orig)
+            .concat(cing_for_register_to_orig)
+            .concat(slf_for_register_to_orig)
+            .concat(af_for_register_to_orig)
+            .concat(corticopontine_frontal_for_register_to_orig)
+            .concat(corticopontine_POT_for_register_to_orig)
+            .concat(cst_for_register_to_orig)
+            .concat(fornix_for_register_to_orig)
+            .concat(ifof_for_register_to_orig)
+            .concat(uf_for_register_to_orig)
+            .concat(ilf_for_register_to_orig)
+            .concat(brainstem_for_register_to_orig)
+            .concat(cerebellum_for_register_to_orig)
+            .combine(transformation_and_t1_for_transformation_to_orig_bundles, by: 0)
+            .set{bundles_for_register}
+
+        trk_plausible_for_register_plausible_to_orig
+            .concat(trk_unplausible_for_register_to_orig)
+            .combine(transformation_and_t1_for_transformation_to_orig, by: 0)
+            .set{trks_for_register}
+      }
+    else{
+        trk_plausible_for_register_plausible_to_orig
+            .concat(trk_unplausible_for_register_to_orig)
+            .combine(transformation_and_t1_for_transformation_to_orig, by: 0)
+            .set{trks_for_register}
+    }
+}
+else{
+  trks_for_register = Channel.create()
+  trks_for_register.close()
+}
+
+process Register_to_orig{
+  publishDir = params.final_output_orig_space
+  cpus 1
+
+  input:
+    set sid, file(trk), file(t1), file(transfo), file(inv_deformation), file(deformation) from trks_for_register
+
+  output:
+    set sid, "${sid}__*_${params.orig_space}.trk"
+
+  when:
+    params.orig
+
+  script:
+  """
+    scil_apply_transform_to_tractogram.py ${trk} ${t1} ${transfo}  ${trk.getSimpleName().replaceAll("mni_space", "orig_space")}.trk --in_deformation ${deformation} --reverse_operation --keep_invalid
+  """
+}
+
+process Register_bundles_to_orig{
+  publishDir = params.final_output_bundles_orig_space
+  cpus 1
+
+  input:
+    set sid, file(trk), file(t1), file(transfo), file(inv_deformation), file(deformation) from bundles_for_register
+
+  output:
+    set sid, "${sid}__*_${params.orig_space}.trk"
+
+  when:
+    params.orig
+
+  script:
+  """
+    scil_apply_transform_to_tractogram.py ${trk} ${t1} ${transfo}  ${trk.getSimpleName().replaceAll("mni_space", "orig_space")}.trk --in_deformation ${deformation} --reverse_operation --keep_invalid
+  """
+}
+
+process Copy_t1_to_orig{
+  publishDir = params.final_output_orig_space
+  cpus 1
+
+  input:
+    tuple sid, file(t1) from t1s_for_copy_to_orig
+
+  output:
+    file("${sid}__t1_orig_space.nii.gz")
+
+  when:
+    params.orig
+
+  script:
+  """
+    cp ${t1} ${sid}__t1_orig_space.nii.gz
   """
 }

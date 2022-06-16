@@ -1,13 +1,13 @@
 ExtractorFlow pipeline
 ======================
 
-Run ExtractorFlow pipeline
+Run ExtractorFlow pipeline.
 Either your tractograms are already in the JHU template space or if you provide a t1 (diff space) it will register everything into the JHU space.
 T1s have to be BET. if not, please use the option run_bet.
 
 USAGE
 
-nextflow run main.nf [OPTIONAL_ARGUMENTS] (--root)
+nextflow run main.nf [OPTIONAL_ARGUMENTS] (--input)
 
 DESCRIPTION
 
@@ -21,14 +21,16 @@ DESCRIPTION
                                             └── *.trk
                                             └── *_t1.nii.gz (diff space, optional)
 
-    --output_dir                        Directory where to write the final results.
-                                        By default, will be in "./results_extractorflow"
-
 OPTIONAL ARGUMENTS (current value)
 
 
+    --output_dir                        Directory where to write the final results.
+                                        By default, will be in "./results_extractorflow"
+
     --run_bet                           Run bet if your t1s are not brain extracted ($run_bet).
-    --debug                             Debug will output more streamline files.
+    --orig                              Extract all trk in diffusion space (if t1 has been provided) ($orig).
+    --extended                          Extract bundles ($extended).
+    --keep_intermediate_steps           Keep intermediate steps ($keep_intermediate_steps). MUST be used if you need to debug.
 
     --processes_bet_register_t1         Number of processes for T1 brain extraction task ($processes_bet_register_t1).
     --processes_apply_registration      Number of processes for registration application ($processes_apply_registration).
@@ -39,4 +41,3 @@ AVAILABLE PROFILES (using -profile option (e.g. -profile macos))
 
 macos                                   When this profile is used, ExtractorFlow will modify a parameter (scratch) for MacOS users.
 fully_reproducible                      When this profile is used, all the parameters will be set to have 100% reproducible results.
-cbrain                                  When this profile is used, Nextflow will copy all the output files in publishDir and not use symlinks.
