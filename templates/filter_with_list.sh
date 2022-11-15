@@ -1,9 +1,9 @@
 #!/bin/bash
 
 scil_filter_tractogram.py ${tractogram} ${basename}__${out_extension}.trk \
-    --filtering_list ${filtering_list} -f --display_count > ${basename}__${out_extension}.txt;
+    --filtering_list ${filtering_list} ${extract_masks} -f --display_count > ${basename}__${out_extension}.txt;
 
-if ${params.debug}
+if [ ${keep} = "true" ]
 then
   scil_streamlines_math.py difference ${tractogram} \
                                       ${basename}__${out_extension}.trk \
