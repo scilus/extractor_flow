@@ -2139,7 +2139,7 @@ process Rename_accx {
     set sid, file(tractogram) from accx_for_rename
 
   output:
-    set sid, "${sid}__cerebellum_${params.template_space}.trk" into accx_for_register_to_orig
+    set sid, "${sid}__accx_${params.template_space}.trk" into accx_for_register_to_orig
 
   when:
     params.extended
