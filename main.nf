@@ -519,10 +519,9 @@ process Extract_plausible_AC_Cx {
 
   input:
     set sid, file(tractogram) from cc_for_extract_AC_Cx
-    each side from sides
 
   output:
-    set sid, "${sid}__in_AC_Cx.trk" into inAC_Cx
+    set sid, "${sid}__in_AC_Cx.trk" into accx_for_trk_plausible, accx_for_register_to_orig
 
   script:
     filtering_list=params.filtering_lists_folder+"AC_Cx_filtering_list.txt"
@@ -542,7 +541,7 @@ process Extract_plausible_CC_BG {
     set sid, file(tractogram) from cc_for_extract_CC_BG
 
   output:
-    set sid, "${sid}__in_CC_BG_f.trk" into inCC_BG
+    set sid, "${sid}__in_CC_BG_f.trk" into ccbg_for_trk_plausible
 
   script:
     filtering_list=params.filtering_lists_folder+"CC_BG_filtering_list.txt"
@@ -1703,7 +1702,7 @@ process Merge_asso_ee_temporal_gyrus{
   """
 }
 
-fornix_for_trk_plausible.concat(cerebellum_for_trk_plausible,brainstem_for_trk_plausible,BG_ipsi_Thal_for_trk_plausible,BG_ipsi_Put_for_trk_plausible,BG_ipsi_Caud_for_trk_plausible,asso_u_shape_for_trk_plausible,CC_homo_for_trk_plausible,asso_all_dorsal_for_trk_plausible,asso_all_ventral_for_trk_plausible,all_P_O_for_trk_plausible,all_P_T_for_trk_plausible,all_O_T_for_trk_plausible,Ins_for_trk_plausible,Cing_for_trk_plausible,asso_all_intraF_be_for_trk_plausible,asso_all_intraF_ee_for_trk_plausible,asso_all_intraP_be_for_trk_plausible,asso_all_intraP_ee_for_trk_plausible,asso_all_intraO_be_for_trk_plausible,asso_all_intraO_ee_for_trk_plausible,asso_all_intraT_be_for_trk_plausible,asso_all_intraT_ee_for_trk_plausible).groupTuple(by: 0).set{merge_trk_plausible}
+fornix_for_trk_plausible.concat(cerebellum_for_trk_plausible,brainstem_for_trk_plausible,BG_ipsi_Thal_for_trk_plausible,BG_ipsi_Put_for_trk_plausible,BG_ipsi_Caud_for_trk_plausible,asso_u_shape_for_trk_plausible,CC_homo_for_trk_plausible,asso_all_dorsal_for_trk_plausible,asso_all_ventral_for_trk_plausible,all_P_O_for_trk_plausible,all_P_T_for_trk_plausible,all_O_T_for_trk_plausible,Ins_for_trk_plausible,Cing_for_trk_plausible,asso_all_intraF_be_for_trk_plausible,asso_all_intraF_ee_for_trk_plausible,asso_all_intraP_be_for_trk_plausible,asso_all_intraP_ee_for_trk_plausible,asso_all_intraO_be_for_trk_plausible,asso_all_intraO_ee_for_trk_plausible,asso_all_intraT_be_for_trk_plausible,asso_all_intraT_ee_for_trk_plausible, accx_for_trk_plausible, ccbg_for_trk_plausible).groupTuple(by: 0).set{merge_trk_plausible}
 
 process Merge_trk_plausible{
   publishDir = params.final_output_mni_space
@@ -2156,6 +2155,7 @@ if (params.orig){
             .concat(ilf_for_register_to_orig)
             .concat(brainstem_for_register_to_orig)
             .concat(cerebellum_for_register_to_orig)
+            .concat(accx_for_register_to_orig)
             .combine(transformation_and_t1_for_transformation_to_orig_bundles, by: 0)
             .set{bundles_for_register}
 
