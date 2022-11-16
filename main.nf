@@ -504,7 +504,7 @@ process Extract_plausible_CC_Cx {
     file "mask_atlas_roi_*.nii.gz" optional true
 
   script:
-    filtering_list=params.filtering_lists_folder+"filtering_list_CC_Cx.txt"
+    filtering_list=params.filtering_lists_folder+"CC_Cx_filtering_list.txt"
     out_extension="in_CC_Cx"
     remaining_extension="garbage"
     basename="${sid}"
@@ -525,7 +525,7 @@ process Extract_plausible_AC_Cx {
     set sid, "${sid}__in_AC_Cx.trk" into inAC_Cx
 
   script:
-    filtering_list=params.filtering_lists_folder+"filtering_list_AC_Cx.txt"
+    filtering_list=params.filtering_lists_folder+"AC_Cx_filtering_list.txt"
     out_extension="in_AC_Cx"
     remaining_extension="garbage"
     basename="${sid}"
@@ -545,7 +545,7 @@ process Extract_plausible_CC_BG {
     set sid, "${sid}__in_CC_BG_f.trk" into inCC_BG
 
   script:
-    filtering_list=params.filtering_lists_folder+"filtering_list_CC_BG.txt"
+    filtering_list=params.filtering_lists_folder+"CC_BG_filtering_list.txt"
     out_extension="in_CC_BG_f"
     remaining_extension="garbage"
     basename="${sid}"
