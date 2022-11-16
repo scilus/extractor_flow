@@ -521,7 +521,7 @@ process Extract_plausible_AC_Cx {
     set sid, file(tractogram) from cc_for_extract_AC_Cx
 
   output:
-    set sid, "${sid}__in_AC_Cx.trk" into accx_for_trk_plausible, accx_for_register_to_orig
+    set sid, "${sid}__in_AC_Cx.trk" into accx_for_trk_plausible, accx_for_rename
 
   script:
     filtering_list=params.filtering_lists_folder+"AC_Cx_filtering_list.txt"
@@ -2127,6 +2127,29 @@ process Rename_cerebellum {
     cp ${tractogram} ${sid}__cerebellum_${params.template_space}.trk -f
   """
 }
+
+/*
+RENAME AC_CX
+*/
+process Rename_accx {
+  publishDir = params.final_output_bundles_mni_space
+  cpus 1
+
+  input:
+    set sid, file(tractogram) from accx_for_rename
+
+  output:
+    set sid, "${sid}__cerebellum_${params.template_space}.trk" into accx_for_register_to_orig
+
+  when:
+    params.extended
+
+  script:
+  """
+    cp ${tractogram} ${sid}__accx_${params.template_space}.trk -f
+  """
+}
+
 
 trks_for_register = Channel.empty()
 bundles_for_register = Channel.empty()
