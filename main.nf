@@ -509,7 +509,7 @@ process Extract_plausible_CC_Cx {
     remaining_extension="garbage"
     basename="${sid}"
     keep="$params.keep_intermediate_steps"
-    extract_masks="--extract_masks_atlas_roi"
+    extract_masks=""
 
     template "filter_with_list.sh"
 }
