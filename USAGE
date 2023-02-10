@@ -32,6 +32,8 @@ OPTIONAL ARGUMENTS (current value)
     --extended                          Extract bundles ($extended).
     --keep_intermediate_steps           Keep intermediate steps ($keep_intermediate_steps). MUST be used if you need to debug.
 
+    --quick_registration                If set, will choose antsRegistrationSyNQuick.sh instead of antsRegistrationSyN.sh ($quick_registration).
+
     --processes_bet_register_t1         Number of processes for T1 brain extraction task ($processes_bet_register_t1).
     --processes_apply_registration      Number of processes for registration application ($processes_apply_registration).
     --processes                         The number of parallel processes to launch ($cpu_count).

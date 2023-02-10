@@ -14,6 +14,7 @@ if(params.help) {
                 "orig":"$params.orig",
                 "extended":"$params.extended",
                 "keep_intermediate_steps":"$params.keep_intermediate_steps",
+                "quick_registration": "$params.quick_registration",
                 "cpu_count":"$cpu_count",
                 "processes_bet_register_t1":"$params.processes_bet_register_t1",
                 "processes_apply_registration":"$params.processes_apply_registration"]
@@ -127,7 +128,7 @@ process Register_T1 {
         scil_image_math.py convert bet/BrainExtractionMask.nii.gz ${sid}__t1_bet_mask.nii.gz --data_type uint8
         scil_image_math.py multiplication $t1 ${sid}__t1_bet_mask.nii.gz ${sid}__t1_bet.nii.gz
 
-        antsRegistrationSyN.sh -d 3 -m ${sid}__t1_bet.nii.gz -f ${params.rois_folder}${params.atlas.template} -n ${task.cpus} -o "${sid}__output" -t s
+        ${params.registration_script} -d 3 -m ${sid}__t1_bet.nii.gz -f ${params.rois_folder}${params.atlas.template} -n ${task.cpus} -o "${sid}__output" -t s
         mv ${sid}__outputWarped.nii.gz ${sid}__t1_${params.template_space}.nii.gz
     """
     }
@@ -138,7 +139,7 @@ process Register_T1 {
         export OPENBLAS_NUM_THREADS=1
         export ANTS_RANDOM_SEED=1234
 
-        antsRegistrationSyN.sh -d 3 -m ${t1} -f ${params.rois_folder}${params.atlas.template} -n ${task.cpus} -o "${sid}__output" -t s
+        ${params.registration_script} -d 3 -m ${t1} -f ${params.rois_folder}${params.atlas.template} -n ${task.cpus} -o "${sid}__output" -t s
         mv ${sid}__outputWarped.nii.gz ${sid}__t1_${params.template_space}.nii.gz
     """
     }
@@ -287,6 +288,8 @@ process Extract_fornix{
     out_extension="fornix_f"
     remaining_extension="unplausible_wo_fornix"
     basename="${sid}"
+    keep="$params.keep_intermediate_steps"
+    extract_masks=""
 
     template "filter_with_list.sh"
 }
@@ -472,7 +475,7 @@ process Extract_all_commissural {
     set sid, file(tractogram) from wb_for_extract_all_commissural
 
   output:
-    set sid, "${sid}__tmp_CC.trk" into cc_for_ee_BG, cc_for_remove_unplausible
+    set sid, "${sid}__tmp_CC.trk" into cc_for_extract_CC_Cx, cc_for_extract_AC_Cx, cc_for_extract_CC_BG
     set sid, "${sid}__wb_either_CGM_SWM_noCC.trk" into no_cc_for_split_asso_BG
     file "${sid}__wb_either_CGM_SWM_noCC.txt" optional true
     file "${sid}__tmp_CC.txt" optional true
@@ -489,58 +492,66 @@ process Extract_all_commissural {
   template "filter_with_atlas.sh"
 }
 
-process Split_CC_BG {
+
+process Extract_plausible_CC_Cx {
   cpus 1
 
   input:
-    set sid, file(tractogram) from cc_for_ee_BG
-    each side from sides
+    set sid, file(tractogram) from cc_for_extract_CC_Cx
 
   output:
-    set sid, "${sid}__contra_BG_${side}.trk" into inCCBG
-    file "${sid}__contra_BG_${side}.txt" optional true
+    set sid, "${sid}__in_CC_Cx.trk" into cc_for_merge_plausible_01
+    file "mask_atlas_roi_*.nii.gz" optional true
 
   script:
-  atlas=params.rois_folder+params.atlas.subcortical+"_${side}.nii.gz"
-  mode=params.mode.either_end
-  criteria=params.criteria.include
-  out_extension="contra_BG_" + "${side}"
-  remaining_extension="notUsed"
-  basename="${sid}"
-  keep=true
+    filtering_list=params.filtering_lists_folder+"CC_Cx_filtering_list.txt"
+    out_extension="in_CC_Cx"
+    remaining_extension="garbage"
+    basename="${sid}"
+    keep="$params.keep_intermediate_steps"
+    extract_masks=""
 
-  template "filter_with_atlas.sh"
+    template "filter_with_list.sh"
 }
 
-process First_cc_cleaning {
+process Extract_plausible_AC_Cx {
   cpus 1
 
   input:
-    set sid, file(tractogram) from cc_for_remove_unplausible
+    set sid, file(tractogram) from cc_for_extract_AC_Cx
 
   output:
-    set sid, "${sid}__CC_Cx.trk" into cc_for_merge_plausible_01
-    set sid, "${sid}__CC_lost.trk" optional true
-    file "${sid}__CC_Cx.txt" optional true
-    file "${sid}__CC_lost.txt" optional true
+    set sid, "${sid}__in_AC_Cx.trk" into accx_for_trk_plausible, accx_for_rename
 
   script:
-  """
-  scil_filter_tractogram.py ${tractogram} ${sid}__CC_Cx.trk \
-    --drawn_roi ${params.rois_folder}${params.atlas.allsubcortical} either_end exclude \
-    --drawn_roi ${params.rois_folder}${params.atlas.brainstemINF} any exclude \
-    --drawn_roi ${params.rois_folder}${params.atlas.ic} any exclude \
-    --drawn_roi ${params.rois_folder}${params.atlas.allThal} any exclude \
-    --drawn_roi ${params.rois_folder}${params.atlas.midline} either_end exclude \
-    --drawn_roi ${params.rois_folder}${params.atlas.allL} both_ends exclude \
-    --drawn_roi ${params.rois_folder}${params.atlas.allR} both_ends exclude -f;
-  if ${params.keep_intermediate_steps}
-  then
-    scil_streamlines_math.py difference ${tractogram} ${sid}__CC_Cx.trk ${sid}__CC_lost.trk # -CC_BG
-    scil_count_streamlines.py ${sid}__CC_lost.trk > ${sid}__CC_lost.txt
-    scil_count_streamlines.py ${sid}__CC_Cx.trk > ${sid}__CC_Cx.txt
-  fi
-  """
+    filtering_list=params.filtering_lists_folder+"AC_Cx_filtering_list.txt"
+    out_extension="in_AC_Cx"
+    remaining_extension="garbage"
+    basename="${sid}"
+    keep="$params.keep_intermediate_steps"
+    extract_masks=""
+
+      template "filter_with_list.sh"
+}
+
+process Extract_plausible_CC_BG {
+  cpus 1
+
+  input:
+    set sid, file(tractogram) from cc_for_extract_CC_BG
+
+  output:
+    set sid, "${sid}__in_CC_BG_f.trk" into ccbg_for_trk_plausible
+
+  script:
+    filtering_list=params.filtering_lists_folder+"CC_BG_filtering_list.txt"
+    out_extension="in_CC_BG_f"
+    remaining_extension="garbage"
+    basename="${sid}"
+    keep="$params.keep_intermediate_steps"
+    extract_masks=""
+
+    template "filter_with_list.sh"
 }
 
 /*
@@ -595,6 +606,8 @@ process Split_BG_Thal {
     out_extension="BG_ipsi_Thal_${list}_${side}"
     remaining_extension="garbage_BG_ipsi_Thal_${list}_${side}"
     basename="${sid}"
+    keep="$params.keep_intermediate_steps"
+    extract_masks=""
 
     template "filter_with_list.sh"
 }
@@ -642,6 +655,8 @@ process Split_BG_Put {
     out_extension="BG_ipsi_Put_${list}_${side}"
     remaining_extension="garbage_BG_ipsi_Put_${list}_${side}"
     basename="${sid}"
+    keep="true"
+    extract_masks=""
 
     template "filter_with_list.sh"
 }
@@ -684,6 +699,8 @@ process Split_BG_Caud {
     out_extension="BG_ipsi_Caud_${list}_${side}"
     remaining_extension="garbage_BG_ipsi_Caud_${list}_${side}"
     basename="${sid}"
+    keep="true"
+    extract_masks=""
 
     template "filter_with_list.sh"
 }
@@ -869,6 +886,8 @@ process CC_Homotopic {
     out_extension="cc_homotopic_${pair}"
     remaining_extension="garbage_${pair}"
     basename="${sid}"
+    keep="$params.keep_intermediate_steps"
+    extract_masks=""
 
     template "filter_with_list.sh"
 }
@@ -977,6 +996,8 @@ process Asso_ventral_f_t {
     out_extension="asso_F_${asso_list}_${side}"
     remaining_extension="asso_lost_${asso_list}_${side}"
     basename="${sid}"
+    keep="$params.keep_intermediate_steps"
+    extract_masks=""
 
     template "filter_with_list.sh"
 }
@@ -1019,6 +1040,7 @@ process Asso_ventral_f_o_f_p {
     remaining_extension="asso_lost_${asso_list}_${side}"
     basename="${sid}"
     keep="$params.keep_intermediate_steps"
+    extract_masks=""
 
     template "filter_with_list.sh"
 }
@@ -1085,6 +1107,8 @@ process Asso_dorsal_f_p {
     out_extension="asso_${asso_list}_${side}"
     remaining_extension="asso_lost_${asso_list}_${side}"
     basename="${sid}"
+    keep="$params.keep_intermediate_steps"
+    extract_masks=""
 
     template "filter_with_list.sh"
 }
@@ -1127,6 +1151,8 @@ process Asso_dorsal_f_o_f_t {
     out_extension="asso_${asso_list}_${side}"
     remaining_extension="asso_lost_${asso_list}_${side}"
     basename="${sid}"
+    keep="$params.keep_intermediate_steps"
+    extract_masks=""
 
     template "filter_with_list.sh"
 }
@@ -1175,6 +1201,8 @@ process Asso_p_o {
     out_extension="asso_${asso_list}_${side}"
     remaining_extension="asso_lost_${asso_list}_${side}"
     basename="${sid}"
+    keep="$params.keep_intermediate_steps"
+    extract_masks=""
 
     template "filter_with_list.sh"
 }
@@ -1220,6 +1248,8 @@ process Asso_p_t {
     out_extension="asso_${asso_list}_${side}"
     remaining_extension="asso_lost_${asso_list}_${side}"
     basename="${sid}"
+    keep="$params.keep_intermediate_steps"
+    extract_masks=""
 
     template "filter_with_list.sh"
 }
@@ -1265,6 +1295,8 @@ process Asso_o_t {
     out_extension="asso_${asso_list}_${side}"
     remaining_extension="asso_lost_${asso_list}_${side}"
     basename="${sid}"
+    keep="$params.keep_intermediate_steps"
+    extract_masks=""
 
     template "filter_with_list.sh"
 }
@@ -1311,6 +1343,8 @@ process Asso_ins {
     out_extension="asso_${asso_list}_${side}"
     remaining_extension="asso_lost_${asso_list}_${side}"
     basename="${sid}"
+    keep="$params.keep_intermediate_steps"
+    extract_masks=""
 
     template "filter_with_list.sh"
 }
@@ -1354,6 +1388,8 @@ process Asso_Cing {
     out_extension="asso_all_Cing_${side}"
     remaining_extension="asso_lost_Cing_${side}"
     basename="${sid}"
+    keep="$params.keep_intermediate_steps"
+    extract_masks=""
 
     template "filter_with_list.sh"
 }
@@ -1666,7 +1702,7 @@ process Merge_asso_ee_temporal_gyrus{
   """
 }
 
-fornix_for_trk_plausible.concat(cerebellum_for_trk_plausible,brainstem_for_trk_plausible,BG_ipsi_Thal_for_trk_plausible,BG_ipsi_Put_for_trk_plausible,BG_ipsi_Caud_for_trk_plausible,asso_u_shape_for_trk_plausible,CC_homo_for_trk_plausible,asso_all_dorsal_for_trk_plausible,asso_all_ventral_for_trk_plausible,all_P_O_for_trk_plausible,all_P_T_for_trk_plausible,all_O_T_for_trk_plausible,Ins_for_trk_plausible,Cing_for_trk_plausible,asso_all_intraF_be_for_trk_plausible,asso_all_intraF_ee_for_trk_plausible,asso_all_intraP_be_for_trk_plausible,asso_all_intraP_ee_for_trk_plausible,asso_all_intraO_be_for_trk_plausible,asso_all_intraO_ee_for_trk_plausible,asso_all_intraT_be_for_trk_plausible,asso_all_intraT_ee_for_trk_plausible).groupTuple(by: 0).set{merge_trk_plausible}
+fornix_for_trk_plausible.concat(cerebellum_for_trk_plausible,brainstem_for_trk_plausible,BG_ipsi_Thal_for_trk_plausible,BG_ipsi_Put_for_trk_plausible,BG_ipsi_Caud_for_trk_plausible,asso_u_shape_for_trk_plausible,CC_homo_for_trk_plausible,asso_all_dorsal_for_trk_plausible,asso_all_ventral_for_trk_plausible,all_P_O_for_trk_plausible,all_P_T_for_trk_plausible,all_O_T_for_trk_plausible,Ins_for_trk_plausible,Cing_for_trk_plausible,asso_all_intraF_be_for_trk_plausible,asso_all_intraF_ee_for_trk_plausible,asso_all_intraP_be_for_trk_plausible,asso_all_intraP_ee_for_trk_plausible,asso_all_intraO_be_for_trk_plausible,asso_all_intraO_ee_for_trk_plausible,asso_all_intraT_be_for_trk_plausible,asso_all_intraT_ee_for_trk_plausible, accx_for_trk_plausible, ccbg_for_trk_plausible).groupTuple(by: 0).set{merge_trk_plausible}
 
 process Merge_trk_plausible{
   publishDir = params.final_output_mni_space
@@ -2092,6 +2128,29 @@ process Rename_cerebellum {
   """
 }
 
+/*
+RENAME AC_CX
+*/
+process Rename_accx {
+  publishDir = params.final_output_bundles_mni_space
+  cpus 1
+
+  input:
+    set sid, file(tractogram) from accx_for_rename
+
+  output:
+    set sid, "${sid}__accx_${params.template_space}.trk" into accx_for_register_to_orig
+
+  when:
+    params.extended
+
+  script:
+  """
+    cp ${tractogram} ${sid}__accx_${params.template_space}.trk -f
+  """
+}
+
+
 trks_for_register = Channel.empty()
 bundles_for_register = Channel.empty()
 
@@ -2119,6 +2178,7 @@ if (params.orig){
             .concat(ilf_for_register_to_orig)
             .concat(brainstem_for_register_to_orig)
             .concat(cerebellum_for_register_to_orig)
+            .concat(accx_for_register_to_orig)
             .combine(transformation_and_t1_for_transformation_to_orig_bundles, by: 0)
             .set{bundles_for_register}
 
