@@ -225,6 +225,7 @@ process Major_filtering {
         -a ${params.loop_angle_threshold} \
         --csf_bin ${params.rois_folder}${params.atlas.shell_limits} \
         -f
+      mv ${sid}/${tractogram.getSimpleName()}_filtered_filtered.trk ${sid}__wb_clean01.trk
     """
 }
 
