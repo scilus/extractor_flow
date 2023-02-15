@@ -212,8 +212,7 @@ process Major_filtering {
       set sid, file(tractogram) from for_major_filtering
 
     output:
-      set sid, "${sid}/${tractogram.getSimpleName()}_filtered_filtered.trk" into wb_for_rm_end_in_cc_dwm
-
+      set sid, "${sid}__wb_clean01.trk" into wb_for_extract_end_in_cerebellum, wb_for_extract_first_unplausible
 
     script:
     """
@@ -226,29 +225,6 @@ process Major_filtering {
         --csf_bin ${params.rois_folder}${params.atlas.shell_limits} \
         -f
     """
-}
-
-process Remove_ee_CC_DWM {
-  cpus 1
-
-  input:
-    set sid, file(tractogram) from wb_for_rm_end_in_cc_dwm
-
-  output:
-    set sid, "${sid}__wb_clean01.trk" into wb_for_extract_end_in_cerebellum, wb_for_extract_first_unplausible
-    set sid, "${sid}__wb_no_In_CC_DWM.trk" optional true
-    file "${sid}__wb_clean01.txt" optional true
-    file "${sid}__wb_no_In_CC_DWM.txt" optional true
-
-  script:
-  filtering_list=params.FLF+"remove_ee_DWM.txt"
-  out_extension="wb_clean01"
-  remaining_extension="wb_not_in_DWM"
-  basename="${sid}"
-  keep="$params.keep_intermediate_steps"
-  extract_masks=""
-
-  template "filter_with_list.sh"
 }
 
 trk_for_extract_first_unplausible.join(wb_for_extract_first_unplausible).set{unplausible_streamlines}
