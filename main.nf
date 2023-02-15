@@ -205,6 +205,7 @@ process Remove_invalid_streamlines {
 
 rm_invalid_for_remove_out_not_JHU.mix(transformed_for_remove_out_not_JHU).set{for_major_filtering}
 
+
 process Major_filtering {
     cpus 1
 
@@ -228,6 +229,8 @@ process Major_filtering {
 }
 
 trk_for_extract_first_unplausible.join(wb_for_extract_first_unplausible).set{unplausible_streamlines}
+
+
 process Extract_first_unplausible{
   cpus 1
 
@@ -244,6 +247,7 @@ process Extract_first_unplausible{
                                       ${sid}__unplausible_streamlines.trk;
   """
 }
+
 
 process Extract_fornix{
   cpus 1
