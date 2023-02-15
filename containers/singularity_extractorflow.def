@@ -1,11 +1,11 @@
 BootStrap: docker
-From: scilus/scilus:1.3.0
+From: scilus/scilus:1.4.2
 
 %setup
-	export ROIs=JHU_template_GIN_dil.tar.bz2
-	mkdir $SINGULARITY_ROOTFS/JHU_template_GIN_dil
-	tar -jxf $ROIs -C $SINGULARITY_ROOTFS/JHU_template_GIN_dil
+	export ROIs=templates_and_ROIs.tar.bz2
+	mkdir -p $SINGULARITY_ROOTFS/extractor_flow/templates_and_ROIs
+	tar -jxf $ROIs -C $SINGULARITY_ROOTFS/extractor_flow/
 
 	export filtering_lists=filtering_lists.tar.bz2
-	mkdir $SINGULARITY_ROOTFS/filtering_lists
-	tar -jxf $filtering_lists -C $SINGULARITY_ROOTFS/filtering_lists
+	mkdir -p $SINGULARITY_ROOTFS/extractor_flow/filtering_lists
+	tar -jxf $filtering_lists -C $SINGULARITY_ROOTFS/extractor_flow/
