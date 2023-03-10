@@ -17,7 +17,8 @@ if(params.help) {
                 "quick_registration": "$params.quick_registration",
                 "cpu_count":"$cpu_count",
                 "processes_bet_register_t1":"$params.processes_bet_register_t1",
-                "processes_apply_registration":"$params.processes_apply_registration"]
+                "processes_apply_registration":"$params.processes_apply_registration",
+                "processes_major_filtering":"$params.processes_major_filtering"]  
 
     engine = new groovy.text.SimpleTemplateEngine()
     template = engine.createTemplate(usage.text).make(bindings)
@@ -226,8 +227,9 @@ process Major_filtering {
         --maxL ${params.max_streaminline_lenght} \
         -a ${params.loop_angle_threshold} \
         --csf_bin ${params.rois_folder}${params.atlas.shell_limits} \
+        --processes 10\
         -f
-      mv ${sid}/${tractogram.getSimpleName()}_filtered_filtered.trk ${sid}__wb_clean01.trk
+      mv ${sid}/${tractogram.getSimpleName()}_filtered.trk ${sid}__wb_clean01.trk
     """
 }
 
@@ -245,7 +247,7 @@ process Extract_first_unplausible{
 
   script:
   """
-  scil_streamlines_math.py difference ${tractogram1} \
+  scil_tractogram_math.py difference ${tractogram1} \
                                       ${tractogram2} \
                                       ${sid}__unplausible_streamlines.trk;
   """
@@ -292,7 +294,7 @@ process Extract_ee_cerebellum {
   out_extension="wb_clean01_nocereb"
   remaining_extension="all_cerebellum"
   basename="${sid}"
-  keep="$params.keep_intermediate_steps"
+  keep=true
   extract_masks=""
 
   template "filter_with_list.sh"
@@ -327,7 +329,7 @@ process Extract_plausible_cerebellum {
         --filtering_list ${params.FLF}cerebellum_in_midbrain.txt -f
   scil_filter_tractogram.py ${sid}__tmp_in_cerebellum.trk ${sid}__all_in_cerebellum_in_redN_and_Thal.trk\
         --filtering_list ${params.FLF}cerebellum_in_rednucleus_and_thalamus.txt -f
-  scil_streamlines_math.py union ${sid}__all_in_*.trk ${sid}__all_cerebellum_plausibles.trk -f
+  scil_tractogram_math.py union ${sid}__all_in_*.trk ${sid}__all_cerebellum_plausibles.trk -f
   """
 }
 
@@ -352,7 +354,7 @@ process Extract_ee_brainstem {
     out_extension="wb_clean02"
     remaining_extension="all_brainstem"
     basename="${sid}"
-    keep="$params.keep_intermediate_steps"
+    keep=true
     extract_masks=""
 
     template "filter_with_list.sh"
@@ -405,7 +407,7 @@ process Extract_plausible_brainstem {
   scil_filter_tractogram.py ${sid}__all_brainstem.trk ${sid}__ee_tmp_02.trk\
       --filtering_list ${params.FLF}brainstem_ee_tmp_02.txt -f
 
-  scil_streamlines_math.py union ${sid}__ee_tmp_01.trk ${sid}__ee_tmp_02.trk\
+  scil_tractogram_math.py union ${sid}__ee_tmp_01.trk ${sid}__ee_tmp_02.trk\
       ${sid}__ee_tmp_03.trk -f
 
   # Extract ee Fronto-pontine
@@ -427,11 +429,11 @@ process Extract_plausible_brainstem {
 
   rm -f ${sid}__*tmp_*.trk
 
-  scil_streamlines_math.py union ${sid}__be_*.trk ${sid}__ee_*.trk ${sid}__all_brainstem_plausibles.trk -f
+  scil_tractogram_math.py union ${sid}__be_*.trk ${sid}__ee_*.trk ${sid}__all_brainstem_plausibles.trk -f
 
   if ${params.keep_intermediate_steps}
   then
-    scil_streamlines_math.py difference ${sid}__all_brainstem.trk ${sid}__all_brainstem_plausibles.trk ${sid}__all_brainstem_unplausibles.trk -f
+    scil_tractogram_math.py difference ${sid}__all_brainstem.trk ${sid}__all_brainstem_plausibles.trk ${sid}__all_brainstem_unplausibles.trk -f
   fi
   """
 }
@@ -624,7 +626,7 @@ process Merge_BG_Thal{
 
   script:
   """
-  scil_streamlines_math.py union ${tractogram} ${sid}__BG_ipsi_Thal_all.trk -f
+  scil_tractogram_math.py union ${tractogram} ${sid}__BG_ipsi_Thal_all.trk -f
   """
 }
 
@@ -667,7 +669,7 @@ process Merge_BG_Put{
 
   script:
   """
-  scil_streamlines_math.py union ${tractogram} ${sid}__BG_ipsi_Put_all.trk -f
+  scil_tractogram_math.py union ${tractogram} ${sid}__BG_ipsi_Put_all.trk -f
   """
 }
 
@@ -711,7 +713,7 @@ process Merge_BG_Caud{
 
   script:
   """
-  scil_streamlines_math.py union ${tractogram} ${sid}__BG_ipsi_Caud_all.trk -f
+  scil_tractogram_math.py union ${tractogram} ${sid}__BG_ipsi_Caud_all.trk -f
   """
 }
 
@@ -735,7 +737,7 @@ process Split_asso_in_hemi {
    scil_filter_tractogram.py ${tractogram} ${sid}__asso_R.trk\
     --filtering_list ${params.FLF}asso_R.txt -f
 
-  scil_streamlines_math.py difference ${tractogram} ${sid}__asso_L.trk ${sid}__asso_R.trk ${sid}__asso_lost.trk -f
+  scil_tractogram_math.py difference ${tractogram} ${sid}__asso_L.trk ${sid}__asso_R.trk ${sid}__asso_lost.trk -f
   """
 }
 
@@ -765,13 +767,13 @@ process Split_ushape_CGM_asso {
     scil_filter_tractogram.py ${tractogram} ${sid}__tmp1_${side}.trk \
       --filtering_list ${params.FLF}all_in_CGM_${side}.txt -f
 
-    scil_streamlines_math.py difference ${tractogram} ${sid}__tmp1_${side}.trk \
+    scil_tractogram_math.py difference ${tractogram} ${sid}__tmp1_${side}.trk \
                              ${sid}__asso_SWM_${side}.trk -f
 
     scil_filter_tractogram.py ${sid}__tmp1_${side}.trk ${sid}__asso_only_in_CGM_${side}.trk \
       --filtering_list ${params.FLF}not_in_SWM_${side}.txt
 
-    scil_streamlines_math.py difference ${sid}__tmp1_${side}.trk ${sid}__asso_only_in_CGM_${side}.trk \
+    scil_tractogram_math.py difference ${sid}__tmp1_${side}.trk ${sid}__asso_only_in_CGM_${side}.trk \
                                  ${sid}__tmp2_${side}.trk -f
 
     scil_filter_tractogram.py ${sid}__tmp2_${side}.trk ${sid}__asso_Ushape_${side}.trk \
@@ -779,10 +781,10 @@ process Split_ushape_CGM_asso {
 
     scil_extract_ushape.py ${sid}__asso_Ushape_${side}.trk --minU 0.5 --maxU 1 ${sid}__asso_Ushape_${side}_u.trk -f
 
-    scil_streamlines_math.py difference ${sid}__tmp2_${side}.trk ${sid}__asso_Ushape_${side}.trk \
+    scil_tractogram_math.py difference ${sid}__tmp2_${side}.trk ${sid}__asso_Ushape_${side}.trk \
                                ${sid}__asso_DWM_${side}.trk -f
 
-    scil_streamlines_math.py union ${sid}__asso_DWM_${side}.trk ${sid}__asso_SWM_${side}.trk ${sid}__asso_f_${side}.trk -f
+    scil_tractogram_math.py union ${sid}__asso_DWM_${side}.trk ${sid}__asso_SWM_${side}.trk ${sid}__asso_f_${side}.trk -f
 
     if ${params.keep_intermediate_steps}
     then
@@ -954,7 +956,7 @@ output:
 
 script:
   """
-  scil_streamlines_math.py union ${tractogram} ${sid}__CC_homo.trk
+  scil_tractogram_math.py union ${tractogram} ${sid}__CC_homo.trk
   """
 }
 
@@ -976,11 +978,11 @@ process CC_all_commissural {
 
   script:
   """
-    scil_streamlines_math.py union ${accx} ${ccbg} ${cc_homo} ${sid}__plausible_commissural.trk -f
+    scil_tractogram_math.py union ${accx} ${ccbg} ${cc_homo} ${sid}__plausible_commissural.trk -f
 
     if ${params.keep_intermediate_steps}
     then
-      scil_streamlines_math.py difference ${tmp_cc} ${sid}__plausible_commissural.trk ${sid}__unplausible_commissural.trk -f
+      scil_tractogram_math.py difference ${tmp_cc} ${sid}__plausible_commissural.trk ${sid}__unplausible_commissural.trk -f
     fi
   """
 }
@@ -1026,7 +1028,7 @@ process Merge_asso_ventral {
 
   script:
   """
-  scil_streamlines_math.py union ${trk01} ${trk02} ${trk03} ${sid}__asso_all_ventral_f_${side}.trk -f
+  scil_tractogram_math.py union ${trk01} ${trk02} ${trk03} ${sid}__asso_all_ventral_f_${side}.trk -f
   """
 }
 
@@ -1067,7 +1069,7 @@ process Asso_dorsal_f_p {
   output:
     set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_all_intra_inter_dorsal_f_p_for_merge
     set sid, val(side), val(asso_list), "${sid}__asso_${asso_list}_${side}.trk" into asso_all_intra_inter_dorsal_f_p_for_rename
-    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk"
+    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk" optional true
     file "${sid}__asso_${asso_list}_${side}.txt" optional true
     file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
 
@@ -1095,7 +1097,7 @@ process Merge_asso_dorsal_f_p {
 
   script:
   """
-  scil_streamlines_math.py union ${tractogram} ${sid}__asso_F_P_dorsal_f_${side}.trk -f
+  scil_tractogram_math.py union ${tractogram} ${sid}__asso_F_P_dorsal_f_${side}.trk -f
   """
 }
 
@@ -1111,7 +1113,7 @@ process Asso_dorsal_f_o_f_t {
   output:
     set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_all_intra_inter_dorsal_all_f_o_f_t_for_merge
     set sid, val(side), val(asso_list), "${sid}__asso_${asso_list}_${side}.trk" into asso_all_intra_inter_dorsal_all_f_T_for_filter, asso_all_intra_inter_dorsal_all_f_O_for_filter
-    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk"
+    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk" optional true
     file "${sid}__asso_${asso_list}_${side}.txt" optional true
     file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
 
@@ -1142,7 +1144,7 @@ process Merge_asso_dorsal {
 
   script:
   """
-  scil_streamlines_math.py union ${trk01} ${trk02} ${trk03} ${sid}__asso_all_dorsal_f_${side}.trk -f
+  scil_tractogram_math.py union ${trk01} ${trk02} ${trk03} ${sid}__asso_all_dorsal_f_${side}.trk -f
   """
 }
 
@@ -1161,7 +1163,7 @@ process Asso_p_o {
 
   output:
     set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_intra_inter_p_o_for_merge
-    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk"
+    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk" optional true
     file "${sid}__asso_${asso_list}_${side}.txt" optional true
     file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
 
@@ -1189,7 +1191,7 @@ process Merge_p_o {
 
   script:
   """
-  scil_streamlines_math.py union ${tractogram} ${sid}__asso_all_P_O_f_${side}.trk -f
+  scil_tractogram_math.py union ${tractogram} ${sid}__asso_all_P_O_f_${side}.trk -f
   """
 }
 
@@ -1208,7 +1210,7 @@ process Asso_p_t {
 
   output:
     set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_intra_inter_p_t_for_merge
-    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk"
+    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk" optional true
     file "${sid}__asso_${asso_list}_${side}.txt" optional true
     file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
 
@@ -1236,7 +1238,7 @@ process Merge_p_t {
 
   script:
   """
-  scil_streamlines_math.py union ${tractogram} ${sid}__asso_all_P_T_f_${side}.trk -f
+  scil_tractogram_math.py union ${tractogram} ${sid}__asso_all_P_T_f_${side}.trk -f
   """
 }
 
@@ -1255,7 +1257,7 @@ process Asso_o_t {
 
   output:
     set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_intra_inter_o_t_for_merge
-    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk"
+    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk" optional true
     file "${sid}__asso_${asso_list}_${side}.txt" optional true
     file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
 
@@ -1284,7 +1286,7 @@ process Merge_o_t {
 
   script:
   """
-  scil_streamlines_math.py union ${tractogram} ${sid}__asso_all_O_T_f_${side}.trk -f
+  scil_tractogram_math.py union ${tractogram} ${sid}__asso_all_O_T_f_${side}.trk -f
   """
 }
 
@@ -1303,7 +1305,7 @@ process Asso_ins {
 
   output:
     set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_intra_inter_ins_for_merge
-    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk"
+    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk" optional true
     file "${sid}__asso_${asso_list}_${side}.txt" optional true
     file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
 
@@ -1331,7 +1333,7 @@ process Merge_ins {
 
   script:
   """
-  scil_streamlines_math.py union ${tractogram} ${sid}__asso_all_Ins_f_${side}.trk -f
+  scil_tractogram_math.py union ${tractogram} ${sid}__asso_all_Ins_f_${side}.trk -f
   """
 }
 
@@ -1348,7 +1350,7 @@ process Asso_Cing {
   output:
     set sid, "${sid}__asso_all_Cing_${side}.trk" into Cing_for_trk_plausible
     set sid, val(side), "${sid}__asso_all_Cing_${side}.trk" into Cing_for_rename
-    set sid, "${sid}__asso_lost_Cing_${side}.trk"
+    set sid, "${sid}__asso_lost_Cing_${side}.trk" optional true
     file "${sid}__asso_all_Cing_${side}.txt" optional true
     file "${sid}__asso_lost_Cing_${side}.txt" optional true
 
@@ -1399,7 +1401,7 @@ process Merge_asso_be_frontal_gyrus{
 
   script:
   """
-    scil_streamlines_math.py union ${tractogram}\
+    scil_tractogram_math.py union ${tractogram}\
       ${sid}_asso_all_intraF_be_f_${side}_u.trk -f
   """
 }
@@ -1452,7 +1454,7 @@ process Merge_asso_ee_frontal_gyrus{
 
   script:
   """
-    scil_streamlines_math.py union ${tractogram} ${sid}_asso_all_intraF_ee_f_${side}_u.trk -f
+    scil_tractogram_math.py union ${tractogram} ${sid}_asso_all_intraF_ee_f_${side}_u.trk -f
   """
 }
 
@@ -1494,7 +1496,7 @@ process Merge_asso_be_occipital_gyrus{
 
   script:
   """
-    scil_streamlines_math.py union ${tractogram} ${sid}_asso_all_intraO_be_f_${side}_u.trk -f
+    scil_tractogram_math.py union ${tractogram} ${sid}_asso_all_intraO_be_f_${side}_u.trk -f
   """
 }
 
@@ -1538,7 +1540,7 @@ process Merge_asso_ee_occipital_gyrus{
 
   script:
   """
-    scil_streamlines_math.py union ${tractogram} ${sid}_asso_all_intraO_ee_f_${side}_u.trk -f
+    scil_tractogram_math.py union ${tractogram} ${sid}_asso_all_intraO_ee_f_${side}_u.trk -f
   """
 }
 
@@ -1580,7 +1582,7 @@ process Merge_asso_be_parietal_gyrus{
 
   script:
   """
-    scil_streamlines_math.py union ${tractogram} ${sid}_asso_all_intraP_be_f_${side}_u.trk -f
+    scil_tractogram_math.py union ${tractogram} ${sid}_asso_all_intraP_be_f_${side}_u.trk -f
   """
 }
 
@@ -1624,7 +1626,7 @@ process Merge_asso_ee_parietal_gyrus{
 
   script:
   """
-    scil_streamlines_math.py union ${tractogram} ${sid}_asso_all_intraP_ee_f_${side}.trk -f
+    scil_tractogram_math.py union ${tractogram} ${sid}_asso_all_intraP_ee_f_${side}.trk -f
   """
 }
 
@@ -1666,7 +1668,7 @@ process Merge_asso_be_temporal_gyrus{
 
   script:
   """
-    scil_streamlines_math.py union ${tractogram} ${sid}_asso_all_intraT_be_f_${side}_u.trk -f
+    scil_tractogram_math.py union ${tractogram} ${sid}_asso_all_intraT_be_f_${side}_u.trk -f
   """
 }
 
@@ -1710,7 +1712,7 @@ process Merge_asso_ee_temporal_gyrus{
 
   script:
   """
-    scil_streamlines_math.py union ${tractogram} ${sid}_asso_all_intraT_ee_f_${side}.trk -f
+    scil_tractogram_math.py union ${tractogram} ${sid}_asso_all_intraT_ee_f_${side}.trk -f
   """
 }
 
@@ -1728,7 +1730,7 @@ process Merge_trk_plausible{
 
   script:
   """
-    scil_streamlines_math.py union ${tractogram} ${sid}__plausible_${params.template_space}.trk -f
+    scil_tractogram_math.py union ${tractogram} ${sid}__plausible_${params.template_space}.trk -f
   """
 }
 
@@ -1745,7 +1747,7 @@ process Extract_trk_unplausible{
 
   script:
   """
-    scil_streamlines_math.py difference ${trk01} ${trk02} ${sid}__unplausible_${params.template_space}.trk --ignore_invalid -f
+    scil_tractogram_math.py difference ${trk01} ${trk02} ${sid}__unplausible_${params.template_space}.trk -f
   """
 }
 
@@ -1776,10 +1778,10 @@ process Rename_cc_homotopic {
 
   script:
   """
-  scil_streamlines_math.py union ${trk01} "${sid}__cc_homotopic_frontal_${params.template_space}.trk" -f
-  scil_streamlines_math.py union ${trk02} "${sid}__cc_homotopic_occipital_${params.template_space}.trk" -f
-  scil_streamlines_math.py union ${trk03} "${sid}__cc_homotopic_temporal_${params.template_space}.trk" -f
-  scil_streamlines_math.py union ${trk04} "${sid}__cc_homotopic_parietal_${params.template_space}.trk" -f
+  scil_tractogram_math.py union ${trk01} "${sid}__cc_homotopic_frontal_${params.template_space}.trk" -f
+  scil_tractogram_math.py union ${trk02} "${sid}__cc_homotopic_occipital_${params.template_space}.trk" -f
+  scil_tractogram_math.py union ${trk03} "${sid}__cc_homotopic_temporal_${params.template_space}.trk" -f
+  scil_tractogram_math.py union ${trk04} "${sid}__cc_homotopic_parietal_${params.template_space}.trk" -f
   cp ${trk05} ${sid}__cc_homotopic_insular_${params.template_space}.trk -f
   cp ${trk06} ${sid}__cc_homotopic_cingulum_${params.template_space}.trk -f
   """
@@ -1804,7 +1806,7 @@ process Rename_cortico_striate {
 
   script:
   """
-    scil_streamlines_math.py union ${tractogram} ${sid}__corticostriatal_${side}_${params.template_space}.trk -f
+    scil_tractogram_math.py union ${tractogram} ${sid}__corticostriatal_${side}_${params.template_space}.trk -f
   """
 }
 
@@ -1826,7 +1828,7 @@ process Rename_coronaradiata {
 
   script:
   """
-    scil_streamlines_math.py union ${tractogram} ${sid}__coronaradiata_${side}_${params.template_space}.trk -f
+    scil_tractogram_math.py union ${tractogram} ${sid}__coronaradiata_${side}_${params.template_space}.trk -f
   """
 }
 
@@ -1848,7 +1850,7 @@ process Rename_optical_radiation {
 
   script:
   """
-    scil_streamlines_math.py union ${tractogram} ${sid}__optical_radiation_${side}_${params.template_space}.trk -f
+    scil_tractogram_math.py union ${tractogram} ${sid}__optical_radiation_${side}_${params.template_space}.trk -f
   """
 }
 
@@ -1915,7 +1917,7 @@ process Rename_slf {
 
   script:
   """
-    scil_streamlines_math.py union ${tractogram} ${sid}__slf_${side}_${params.template_space}.trk -f
+    scil_tractogram_math.py union ${tractogram} ${sid}__slf_${side}_${params.template_space}.trk -f
   """
 }
 
