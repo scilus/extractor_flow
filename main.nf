@@ -17,7 +17,6 @@ if(params.help) {
                 "quick_registration": "$params.quick_registration",
                 "cpu_count":"$cpu_count",
                 "processes_bet_register_t1":"$params.processes_bet_register_t1",
-                "processes_apply_registration":"$params.processes_apply_registration",
                 "processes_major_filtering":"$params.processes_major_filtering"]  
 
     engine = new groovy.text.SimpleTemplateEngine()
@@ -119,7 +118,7 @@ process Register_T1 {
     script:
     if (params.run_bet){
     """
-        export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=$task.cpus
+        export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1
         export OMP_NUM_THREADS=1
         export OPENBLAS_NUM_THREADS=1
         export ANTS_RANDOM_SEED=1234
@@ -135,7 +134,7 @@ process Register_T1 {
     }
     else{
     """
-        export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=$task.cpus
+        export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1
         export OMP_NUM_THREADS=1
         export OPENBLAS_NUM_THREADS=1
         export ANTS_RANDOM_SEED=1234
@@ -210,7 +209,7 @@ rm_invalid_for_remove_out_not_JHU.mix(transformed_for_remove_out_not_JHU).set{fo
 
 
 process Major_filtering {
-    cpus 1
+    cpus params.processes_major_filtering
 
     input:
       set sid, file(tractogram) from for_major_filtering
@@ -227,7 +226,7 @@ process Major_filtering {
         --maxL ${params.max_streaminline_lenght} \
         -a ${params.loop_angle_threshold} \
         --csf_bin ${params.rois_folder}${params.atlas.shell_limits} \
-        --processes 10\
+        --processes ${params.processes_major_filtering}\
         -f
       mv ${sid}/${tractogram.getSimpleName()}_filtered.trk ${sid}__wb_clean01.trk
     """
@@ -964,7 +963,8 @@ script:
   COMMISSURAL
 */
 
-cc_tmp_for_commissural.join(accx_for_commissural).join(ccbg_for_commissural).join(cc_homo_for_commissural).set{all_cc_for_commissural}
+cc_tmp_for_commissural.join(accx_for_commissural).join(ccbg_for_commissural).join(cc_homo_for_commissural).into{all_cc_for_commissural;toto}
+toto.println()
 
 process CC_all_commissural {
   cpus 1
@@ -1128,8 +1128,8 @@ process Asso_dorsal_f_o_f_t {
     template "filter_with_list.sh"
 }
 
-asso_all_intra_inter_dorsal_all_f_T_for_filter.filter{it[2]=='T_dorsal'}.set{asso_all_intra_inter_dorsal_all_f_T_for_rename}
-asso_all_intra_inter_dorsal_all_f_O_for_filter.filter{it[2]=='O_dorsal'}.set{asso_all_intra_inter_dorsal_all_f_O_for_rename}
+asso_all_intra_inter_dorsal_all_f_T_for_filter.filter{it[2]=='F_T_dorsal'}.set{asso_all_intra_inter_dorsal_all_f_T_for_rename}
+asso_all_intra_inter_dorsal_all_f_O_for_filter.filter{it[2]=='F_O_dorsal'}.set{asso_all_intra_inter_dorsal_all_f_O_for_rename}
 
 asso_all_intra_inter_dorsal_all_f_p_for_merge.groupTuple(by:[0,1]).join(asso_all_intra_inter_dorsal_all_f_o_f_t_for_merge.groupTuple(by:[0,1]), by:[0,1]).map{it.flatten().toList()}.set{asso_all_intra_inter_dorsal_all_for_merge}
 

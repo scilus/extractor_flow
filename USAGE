@@ -29,13 +29,12 @@ OPTIONAL ARGUMENTS (current value)
 
     --run_bet                           Run bet if your t1s are not brain extracted ($run_bet).
     --orig                              Extract all trk in diffusion space (if t1 has been provided) ($orig).
-    --extended                          Extract bundles ($extended).
     --keep_intermediate_steps           Keep intermediate steps ($keep_intermediate_steps). MUST be used if you need to debug.
 
     --quick_registration                If set, will choose antsRegistrationSyNQuick.sh instead of antsRegistrationSyN.sh ($quick_registration).
 
     --processes_bet_register_t1         Number of processes for T1 brain extraction task ($processes_bet_register_t1).
-    --processes_apply_registration      Number of processes for registration application ($processes_apply_registration).
+    --processes_major_filtering         Number of processes for the major filtering task ($processes_major_filtering).
     --processes                         The number of parallel processes to launch ($cpu_count).
                                         Only affects the local scheduler.
 
@@ -43,3 +42,4 @@ AVAILABLE PROFILES (using -profile option (e.g. -profile macos))
 
 macos                                   When this profile is used, ExtractorFlow will modify a parameter (scratch) for MacOS users.
 fully_reproducible                      When this profile is used, all the parameters will be set to have 100% reproducible results.
+extract_bundles                         Extract bundles
