@@ -204,7 +204,7 @@ process Remove_invalid_streamlines {
     """
 }
 
-process copy_t1_atlas {
+process Copy_t1_atlas {
     publishDir = params.final_output_mni_space
     cpus 1
 
