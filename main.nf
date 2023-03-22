@@ -209,7 +209,7 @@ process copy_t1_atlas {
     cpus 1
 
     input:
-      set file(tractogram) from t1_for_remove_invalid_streamlines
+      set sid, file(tractogram) from t1_for_remove_invalid_streamlines
 
     output:
       file "${sid}__t1_mni_space.nii.gz"
