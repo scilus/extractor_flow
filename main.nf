@@ -179,11 +179,11 @@ process Transform_TRK {
 
 /* END TRANSFO */
 
-for_remove_invalid_streamlines = Channel.empty()
+trk_for_remove_invalid_streamlines = Channel.empty()
+t1_for_remove_invalid_streamlines = Channel.empty()
 if (t1s_empty.count().get()==0){
-  for_remove_invalid_streamlines = for_remove_invalid_streamlines.mix(in_tractogram_for_mix)
   in_tractogram_for_unplausible.into{trk_for_extract_first_unplausible; trk_for_extract_unplausible}
-  for_remove_invalid_streamlines.into{trk_for_remove_invalid_streamlines; t1_for_remove_invalid_streamlines}
+  in_tractogram_for_mix.into{trk_for_remove_invalid_streamlines; t1_for_remove_invalid_streamlines}
 }
 else{
   transformed_for_unplausible.into{trk_for_extract_first_unplausible; trk_for_extract_unplausible}
