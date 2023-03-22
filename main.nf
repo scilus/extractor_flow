@@ -183,6 +183,7 @@ for_remove_invalid_streamlines = Channel.empty()
 if (t1s_empty.count().get()==0){
   for_remove_invalid_streamlines = for_remove_invalid_streamlines.mix(in_tractogram_for_mix)
   in_tractogram_for_unplausible.into{trk_for_extract_first_unplausible; trk_for_extract_unplausible}
+  for_remove_invalid_streamlines.into{trk_for_remove_invalid_streamlines; t1_for_remove_invalid_streamlines}
 }
 else{
   transformed_for_unplausible.into{trk_for_extract_first_unplausible; trk_for_extract_unplausible}
@@ -192,15 +193,29 @@ process Remove_invalid_streamlines {
     cpus 1
 
     input:
-      set sid, file(tractogram) from for_remove_invalid_streamlines
+      set sid, file(tractogram) from trk_for_remove_invalid_streamlines
 
     output:
       set sid, "${sid}__rm_invalid_streamlines.trk" into rm_invalid_for_remove_out_not_JHU
-      file "${sid}__t1_mni_space.nii.gz"
 
     script:
     """
       scil_remove_invalid_streamlines.py ${tractogram} ${sid}__rm_invalid_streamlines.trk --cut_invalid --remove_single_point -f
+    """
+}
+
+process copy_t1_atlas {
+    publishDir = params.final_output_mni_space
+    cpus 1
+
+    input:
+      set file(tractogram) from t1_for_remove_invalid_streamlines
+
+    output:
+      file "${sid}__t1_mni_space.nii.gz"
+
+    script:
+    """
       cp ${params.rois_folder}${params.atlas.template} ${sid}__t1_mni_space.nii.gz
     """
 }
