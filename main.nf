@@ -978,8 +978,7 @@ script:
   COMMISSURAL
 */
 
-cc_tmp_for_commissural.join(accx_for_commissural).join(ccbg_for_commissural).join(cc_homo_for_commissural).into{all_cc_for_commissural;toto}
-toto.println()
+cc_tmp_for_commissural.join(accx_for_commissural).join(ccbg_for_commissural).join(cc_homo_for_commissural).set{all_cc_for_commissural}
 
 process CC_all_commissural {
   cpus 1
