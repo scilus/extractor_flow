@@ -2260,7 +2260,7 @@ process Register_to_orig{
 
   script:
   """
-    scil_apply_transform_to_tractogram.py ${trk} ${t1} ${transfo}  ${trk.getSimpleName().replaceAll(${params.template_space}, ${params.orig_space})}.trk --in_deformation ${deformation} --reverse_operation --keep_invalid
+    scil_apply_transform_to_tractogram.py ${trk} ${t1} ${transfo}  ${trk.getSimpleName().replaceAll("mni_space", "orig_space")}.trk --in_deformation ${deformation} --reverse_operation --keep_invalid
   """
 }
 
@@ -2279,7 +2279,7 @@ process Register_bundles_to_orig{
 
   script:
   """
-    scil_apply_transform_to_tractogram.py ${trk} ${t1} ${transfo}  ${trk.getSimpleName().replaceAll(${params.template_space}, ${params.orig_space})}.trk --in_deformation ${deformation} --reverse_operation --keep_invalid
+    scil_apply_transform_to_tractogram.py ${trk} ${t1} ${transfo}  ${trk.getSimpleName().replaceAll("mni_space", "orig_space")}.trk --in_deformation ${deformation} --reverse_operation --keep_invalid
   """
 }
 
