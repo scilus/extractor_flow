@@ -988,16 +988,16 @@ process CC_all_commissural {
     set sid, file(tmp_cc), file(accx), file(ccbg), file(cc_homo) from all_cc_for_commissural
 
   output:
-    set sid, "${sid}__plausible_commissural.trk" into plausible_commissural_for_register_to_orig
+    set sid, "${sid}__plausible_commissural_${params.template_space}.trk" into plausible_commissural_for_register_to_orig
     file "${sid}__unplausible_commissural.trk" optional true
 
   script:
   """
-    scil_tractogram_math.py union ${accx} ${ccbg} ${cc_homo} ${sid}__plausible_commissural.trk -f
+    scil_tractogram_math.py union ${accx} ${ccbg} ${cc_homo} ${sid}__plausible_commissural_${params.template_space}.trk -f
 
     if ${params.keep_intermediate_steps}
     then
-      scil_tractogram_math.py difference ${tmp_cc} ${sid}__plausible_commissural.trk ${sid}__unplausible_commissural.trk -f
+      scil_tractogram_math.py difference ${tmp_cc} ${sid}__plausible_commissural_${params.template_space}.trk ${sid}__unplausible_commissural.trk -f
     fi
   """
 }
@@ -2260,7 +2260,7 @@ process Register_to_orig{
 
   script:
   """
-    scil_apply_transform_to_tractogram.py ${trk} ${t1} ${transfo}  ${trk.getSimpleName().replaceAll("mni_space", "orig_space")}.trk --in_deformation ${deformation} --reverse_operation --keep_invalid
+    scil_apply_transform_to_tractogram.py ${trk} ${t1} ${transfo}  ${trk.getSimpleName().replaceAll(${params.template_space}, ${params.orig_space})}.trk --in_deformation ${deformation} --reverse_operation --keep_invalid
   """
 }
 
@@ -2279,7 +2279,7 @@ process Register_bundles_to_orig{
 
   script:
   """
-    scil_apply_transform_to_tractogram.py ${trk} ${t1} ${transfo}  ${trk.getSimpleName().replaceAll("mni_space", "orig_space")}.trk --in_deformation ${deformation} --reverse_operation --keep_invalid
+    scil_apply_transform_to_tractogram.py ${trk} ${t1} ${transfo}  ${trk.getSimpleName().replaceAll(${params.template_space}, ${params.orig_space})}.trk --in_deformation ${deformation} --reverse_operation --keep_invalid
   """
 }
 
