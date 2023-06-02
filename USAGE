@@ -33,6 +33,8 @@ OPTIONAL ARGUMENTS (current value)
 
     --quick_registration                If set, will choose antsRegistrationSyNQuick.sh instead of antsRegistrationSyN.sh ($quick_registration).
 
+    --distance                          If set, it will add use a distance threshold for filtering modes both_end and either_end ($distance)
+
     --processes_bet_register_t1         Number of processes for T1 brain extraction task ($processes_bet_register_t1).
     --processes_major_filtering         Number of processes for the major filtering task ($processes_major_filtering).
     --processes                         The number of parallel processes to launch ($cpu_count).
