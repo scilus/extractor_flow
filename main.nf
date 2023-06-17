@@ -335,17 +335,17 @@ process Extract_plausible_cerebellum {
   script:
   """
   scil_filter_tractogram.py ${tractogram} ${sid}__tmp_in_cerebellum.trk\
-        --filtering_list ${params.FLF}in_cerebellum.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+        --filtering_list ${params.FLF}in_cerebellum.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
   scil_filter_tractogram.py ${sid}__tmp_in_cerebellum.trk ${sid}__all_in_cerebellum_nocx_nocerebwm.trk\
-        --filtering_list ${params.FLF}cerebellum_nocx_in_cereb.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+        --filtering_list ${params.FLF}cerebellum_nocx_in_cereb.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
   scil_filter_tractogram.py ${sid}__tmp_in_cerebellum.trk ${sid}__all_in_cerebellum_in_Medulla.trk\
-        --filtering_list ${params.FLF}cerebellum_in_medulla.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+        --filtering_list ${params.FLF}cerebellum_in_medulla.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
   scil_filter_tractogram.py ${sid}__tmp_in_cerebellum.trk ${sid}__all_in_cerebellum_in_Pons.trk\
-        --filtering_list ${params.FLF}cerebellum_in_pons.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+        --filtering_list ${params.FLF}cerebellum_in_pons.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
   scil_filter_tractogram.py ${sid}__tmp_in_cerebellum.trk ${sid}__all_in_cerebellum_in_Midbrain.trk\
-        --filtering_list ${params.FLF}cerebellum_in_midbrain.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+        --filtering_list ${params.FLF}cerebellum_in_midbrain.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
   scil_filter_tractogram.py ${sid}__tmp_in_cerebellum.trk ${sid}__all_in_cerebellum_in_redN_and_Thal.trk\
-        --filtering_list ${params.FLF}cerebellum_in_rednucleus_and_thalamus.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+        --filtering_list ${params.FLF}cerebellum_in_rednucleus_and_thalamus.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
   scil_tractogram_math.py union ${sid}__all_in_*.trk ${sid}__all_cerebellum_plausibles.trk -f
   """
 }
@@ -404,41 +404,41 @@ process Extract_plausible_brainstem {
   """
   # Extract be midbrain
   scil_filter_tractogram.py ${sid}__all_brainstem.trk ${sid}__be_midbrain.trk\
-      --filtering_list ${params.FLF}brainstem_be_midbrain.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+      --filtering_list ${params.FLF}brainstem_be_midbrain.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
   # Extract be medulla
   scil_filter_tractogram.py ${sid}__all_brainstem.trk ${sid}__be_medulla.trk\
-      --filtering_list ${params.FLF}brainstem_be_medulla.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+      --filtering_list ${params.FLF}brainstem_be_medulla.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
   # Extract be pons
   scil_filter_tractogram.py ${sid}__all_brainstem.trk ${sid}__be_pons.trk\
-      --filtering_list ${params.FLF}brainstem_be_pons.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+      --filtering_list ${params.FLF}brainstem_be_pons.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
 
   # Extract ee thalamus
   scil_filter_tractogram.py ${sid}__all_brainstem.trk ${sid}__ee_thalamus.trk\
-      --filtering_list ${params.FLF}brainstem_ee_thalamus.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+      --filtering_list ${params.FLF}brainstem_ee_thalamus.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
   # Extract ee red_nucleus
   scil_filter_tractogram.py ${sid}__all_brainstem.trk ${sid}__ee_red_nucleus.trk\
-      --filtering_list ${params.FLF}brainstem_ee_red_nucleus.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+      --filtering_list ${params.FLF}brainstem_ee_red_nucleus.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
 
   # Prepartion for fronto-pontine, parietotemporooccipito-pontine, pyramidal, cortico-tectal
   scil_filter_tractogram.py ${sid}__all_brainstem.trk ${sid}__ee_tmp_01.trk\
-      --filtering_list ${params.FLF}brainstem_ee_tmp_01.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+      --filtering_list ${params.FLF}brainstem_ee_tmp_01.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
   scil_filter_tractogram.py ${sid}__all_brainstem.trk ${sid}__ee_tmp_02.trk\
-      --filtering_list ${params.FLF}brainstem_ee_tmp_02.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+      --filtering_list ${params.FLF}brainstem_ee_tmp_02.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
 
   scil_tractogram_math.py union ${sid}__ee_tmp_01.trk ${sid}__ee_tmp_02.trk\
       ${sid}__ee_tmp_03.trk -f
 
   # Extract ee Fronto-pontine
   scil_filter_tractogram.py ${sid}__ee_tmp_03.trk ${sid}__ee_fronto_pontine.trk\
-      --filtering_list ${params.FLF}brainstem_ee_F_pontine.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+      --filtering_list ${params.FLF}brainstem_ee_F_pontine.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
 
   # Extract ee ParietoTemporooccipital pontine
   scil_filter_tractogram.py ${sid}__ee_tmp_03.trk ${sid}__ee_parietotemporooccipital_pontine.trk\
-      --filtering_list ${params.FLF}brainstem_ee_PTO_pontine.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+      --filtering_list ${params.FLF}brainstem_ee_PTO_pontine.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
 
   # Extract ee Pyramidal
   scil_filter_tractogram.py ${sid}__ee_tmp_03.trk ${sid}__ee_pyramidal.trk\
-      --filtering_list ${params.FLF}brainstem_ee_pyramidal.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+      --filtering_list ${params.FLF}brainstem_ee_pyramidal.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
 
   # Extract ee Tectal
   scil_filter_tractogram.py ${sid}__ee_tmp_03.trk ${sid}__ee_cortico_tectal.trk\
@@ -760,9 +760,9 @@ process Split_asso_in_hemi {
   script:
   """
   scil_filter_tractogram.py ${tractogram} ${sid}__asso_L.trk\
-   --filtering_list ${params.FLF}asso_L.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+   --filtering_list ${params.FLF}asso_L.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
    scil_filter_tractogram.py ${tractogram} ${sid}__asso_R.trk\
-    --filtering_list ${params.FLF}asso_R.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+    --filtering_list ${params.FLF}asso_R.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
 
   scil_tractogram_math.py difference ${tractogram} ${sid}__asso_L.trk ${sid}__asso_R.trk ${sid}__asso_lost.trk -f
   """
@@ -792,19 +792,19 @@ process Split_ushape_CGM_asso {
   script:
   """
     scil_filter_tractogram.py ${tractogram} ${sid}__tmp1_${side}.trk \
-      --filtering_list ${params.FLF}all_in_CGM_${side}.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+      --filtering_list ${params.FLF}all_in_CGM_${side}.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
 
     scil_tractogram_math.py difference ${tractogram} ${sid}__tmp1_${side}.trk \
                              ${sid}__asso_SWM_${side}.trk -f
 
     scil_filter_tractogram.py ${sid}__tmp1_${side}.trk ${sid}__asso_only_in_CGM_${side}.trk \
-      --filtering_list ${params.FLF}not_in_SWM_${side}.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+      --filtering_list ${params.FLF}not_in_SWM_${side}.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
 
     scil_tractogram_math.py difference ${sid}__tmp1_${side}.trk ${sid}__asso_only_in_CGM_${side}.trk \
                                  ${sid}__tmp2_${side}.trk -f
 
     scil_filter_tractogram.py ${sid}__tmp2_${side}.trk ${sid}__asso_Ushape_${side}.trk \
-      --filtering_list ${params.FLF}not_in_DWM_${side}.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+      --filtering_list ${params.FLF}not_in_DWM_${side}.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
 
     scil_extract_ushape.py ${sid}__asso_Ushape_${side}.trk --minU 0.5 --maxU 1 ${sid}__asso_Ushape_${side}_u.trk -f
 
@@ -1421,7 +1421,7 @@ process Asso_be_frontal_gyrus {
   script:
   """
   scil_filter_tractogram.py ${tractogram} tmp.trk\
-    --filtering_list ${params.FLF}ASSO_be_${gyrus}_${side}.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+    --filtering_list ${params.FLF}ASSO_be_${gyrus}_${side}.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
   scil_extract_ushape.py tmp.trk --minU 0.5 --maxU 1\
     ${sid}_asso_intra_be_frontal_${gyrus}_${side}_u.trk -f
   """
@@ -1470,7 +1470,7 @@ process Asso_ee_frontal_gyrus {
   script:
   """
   scil_filter_tractogram.py ${tractogram} tmp_01.trk\
-    --filtering_list ${params.FLF}ASSO_ee_${gyrus}_${side}.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+    --filtering_list ${params.FLF}ASSO_ee_${gyrus}_${side}.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
   scil_filter_streamlines_by_length.py tmp_01.trk tmp_02.trk\
     --maxL ${max_length} -f
   scil_extract_ushape.py tmp_02.trk\
@@ -1514,7 +1514,7 @@ process Asso_be_occipital_gyrus {
   script:
   """
   scil_filter_tractogram.py ${tractogram} tmp.trk \
-    --filtering_list ${params.FLF}ASSO_be_${gyrus}_${side}.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+    --filtering_list ${params.FLF}ASSO_be_${gyrus}_${side}.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
   scil_extract_ushape.py tmp.trk\
     --minU 0.5\
     --maxU 1\
@@ -1556,7 +1556,7 @@ process Asso_ee_occipital_gyrus {
   script:
   """
   scil_filter_tractogram.py ${tractogram} tmp_01.trk\
-    --filtering_list ${params.FLF}ASSO_ee_${gyrus}_${side}.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+    --filtering_list ${params.FLF}ASSO_ee_${gyrus}_${side}.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
   scil_filter_streamlines_by_length.py tmp_01.trk tmp_02.trk\
     --maxL ${max_length} -f
   scil_extract_ushape.py tmp_02.trk\
@@ -1600,7 +1600,7 @@ process Asso_be_parietal_gyrus {
   script:
   """
   scil_filter_tractogram.py ${tractogram} tmp.trk\
-    --filtering_list ${params.FLF}ASSO_be_${gyrus}_${side}.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+    --filtering_list ${params.FLF}ASSO_be_${gyrus}_${side}.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
   scil_extract_ushape.py tmp.trk\
     --minU 0.5\
     --maxU 1\
@@ -1642,7 +1642,7 @@ process Asso_ee_parietal_gyrus {
   script:
   """
   scil_filter_tractogram.py ${tractogram} tmp_01.trk\
-    --filtering_list ${params.FLF}ASSO_ee_${gyrus}_${side}.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+    --filtering_list ${params.FLF}ASSO_ee_${gyrus}_${side}.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
   scil_filter_streamlines_by_length.py tmp_01.trk tmp_02.trk\
     --maxL ${max_length} -f
   scil_extract_ushape.py tmp_02.trk\
@@ -1686,7 +1686,7 @@ process Asso_be_temporal_gyrus {
   script:
   """
   scil_filter_tractogram.py ${tractogram} tmp.trk\
-    --filtering_list ${params.FLF}ASSO_be_${gyrus}_${side}.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+    --filtering_list ${params.FLF}ASSO_be_${gyrus}_${side}.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
   scil_extract_ushape.py tmp.trk\
     --minU 0.5\
     --maxU 1\
@@ -1728,7 +1728,7 @@ process Asso_ee_temporal_gyrus {
   script:
   """
   scil_filter_tractogram.py ${tractogram} tmp_01.trk\
-    --filtering_list ${params.FLF}ASSO_ee_${gyrus}_${side}.txt --overwrite_distance both_ends ${params.distance} --overwrite_distance either_end ${params.distance} -f
+    --filtering_list ${params.FLF}ASSO_ee_${gyrus}_${side}.txt --overwrite_distance both_ends include ${params.distance} --overwrite_distance either_end include ${params.distance} -f
   scil_filter_streamlines_by_length.py tmp_01.trk tmp_02.trk\
     --maxL ${max_length} -f
   scil_extract_ushape.py tmp_02.trk\
