@@ -753,9 +753,7 @@ process Split_asso_in_hemi {
 
   output:
     set sid, val(side), "${sid}__asso_${side}.trk" into asso_for_extract_u_shape
-    set sid, "${sid}__asso_${side}_lost.trk" optional true
     file "${sid}__asso_${side}.txt" optional true
-    file "${sid}__asso_${side}_lost.txt" optional true
 
   script:
   """
@@ -763,8 +761,6 @@ process Split_asso_in_hemi {
    --filtering_list ${params.FLF}asso_L.txt -f
    scil_filter_tractogram.py ${tractogram} ${sid}__asso_R.trk\
     --filtering_list ${params.FLF}asso_R.txt -f
-
-  scil_tractogram_math.py difference ${tractogram} ${sid}__asso_L.trk ${sid}__asso_R.trk ${sid}__asso_lost.trk -f
   """
 }
 
@@ -1102,16 +1098,14 @@ process Asso_dorsal_f_p {
   output:
     set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_all_intra_inter_dorsal_f_p_for_merge
     set sid, val(side), val(asso_list), "${sid}__asso_${asso_list}_${side}.trk" into asso_all_intra_inter_dorsal_f_p_for_rename
-    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk" optional true
     file "${sid}__asso_${asso_list}_${side}.txt" optional true
-    file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
 
   script:
     filtering_list=params.FLF+"ASSO_${asso_list}_${side}.txt"
     out_extension="asso_${asso_list}_${side}"
     remaining_extension="asso_lost_${asso_list}_${side}"
     basename="${sid}"
-    keep="$params.keep_intermediate_steps"
+    keep=false
     extract_masks=""
     distance="$params.distance"
 
@@ -1147,16 +1141,14 @@ process Asso_dorsal_f_o_f_t {
   output:
     set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_all_intra_inter_dorsal_all_f_o_f_t_for_merge
     set sid, val(side), val(asso_list), "${sid}__asso_${asso_list}_${side}.trk" into asso_all_intra_inter_dorsal_all_f_T_for_filter, asso_all_intra_inter_dorsal_all_f_O_for_filter
-    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk" optional true
     file "${sid}__asso_${asso_list}_${side}.txt" optional true
-    file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
 
   script:
     filtering_list=params.FLF+"ASSO_${asso_list}_${side}.txt"
     out_extension="asso_${asso_list}_${side}"
     remaining_extension="asso_lost_${asso_list}_${side}"
     basename="${sid}"
-    keep="$params.keep_intermediate_steps"
+    keep=false
     extract_masks=""
     distance="$params.distance"
 
@@ -1198,16 +1190,14 @@ process Asso_p_o {
 
   output:
     set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_intra_inter_p_o_for_merge
-    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk" optional true
     file "${sid}__asso_${asso_list}_${side}.txt" optional true
-    file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
 
   script:
     filtering_list=params.FLF+"ASSO_${asso_list}_${side}.txt"
     out_extension="asso_${asso_list}_${side}"
     remaining_extension="asso_lost_${asso_list}_${side}"
     basename="${sid}"
-    keep="$params.keep_intermediate_steps"
+    keep=false
     extract_masks=""
     distance="$params.distance"
 
@@ -1246,16 +1236,14 @@ process Asso_p_t {
 
   output:
     set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_intra_inter_p_t_for_merge
-    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk" optional true
     file "${sid}__asso_${asso_list}_${side}.txt" optional true
-    file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
 
   script:
     filtering_list=params.FLF+"ASSO_${asso_list}_${side}.txt"
     out_extension="asso_${asso_list}_${side}"
     remaining_extension="asso_lost_${asso_list}_${side}"
     basename="${sid}"
-    keep="$params.keep_intermediate_steps"
+    keep=false
     extract_masks=""
     distance="$params.distance"
 
@@ -1294,16 +1282,14 @@ process Asso_o_t {
 
   output:
     set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_intra_inter_o_t_for_merge
-    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk" optional true
     file "${sid}__asso_${asso_list}_${side}.txt" optional true
-    file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
 
   script:
     filtering_list=params.FLF+"ASSO_${asso_list}_${side}.txt"
     out_extension="asso_${asso_list}_${side}"
     remaining_extension="asso_lost_${asso_list}_${side}"
     basename="${sid}"
-    keep="$params.keep_intermediate_steps"
+    keep=false
     extract_masks=""
     distance="$params.distance"
 
@@ -1343,16 +1329,14 @@ process Asso_ins {
 
   output:
     set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_intra_inter_ins_for_merge
-    set sid, "${sid}__asso_lost_${asso_list}_${side}.trk" optional true
     file "${sid}__asso_${asso_list}_${side}.txt" optional true
-    file "${sid}__asso_lost_${asso_list}_${side}.txt" optional true
 
   script:
     filtering_list=params.FLF+"ASSO_${asso_list}_${side}.txt"
     out_extension="asso_${asso_list}_${side}"
     remaining_extension="asso_lost_${asso_list}_${side}"
     basename="${sid}"
-    keep="$params.keep_intermediate_steps"
+    keep=false
     extract_masks=""
     distance="$params.distance"
 
@@ -1389,16 +1373,14 @@ process Asso_Cing {
   output:
     set sid, "${sid}__asso_all_Cing_${side}.trk" into Cing_for_trk_plausible
     set sid, val(side), "${sid}__asso_all_Cing_${side}.trk" into Cing_for_rename
-    set sid, "${sid}__asso_lost_Cing_${side}.trk" optional true
     file "${sid}__asso_all_Cing_${side}.txt" optional true
-    file "${sid}__asso_lost_Cing_${side}.txt" optional true
 
   script:
     filtering_list=params.FLF+"ASSO_Cing_${side}.txt"
     out_extension="asso_all_Cing_${side}"
     remaining_extension="asso_lost_Cing_${side}"
     basename="${sid}"
-    keep="$params.keep_intermediate_steps"
+    keep=false
     extract_masks=""
     distance="1"
 
