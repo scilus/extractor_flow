@@ -788,21 +788,23 @@ process Split_ushape_CGM_asso {
   script:
   """
     scil_filter_tractogram.py ${tractogram} ${sid}__tmp1_${side}.trk \
-      --filtering_list ${params.FLF}all_in_CGM_${side}.txt -f \
-      --overwrite_distance both_ends include 1 \
-      --overwrite_distance either_end include 1
+      --filtering_list ${params.FLF}all_in_CGM_${side}.txt -f
 
     scil_tractogram_math.py difference ${tractogram} ${sid}__tmp1_${side}.trk \
                              ${sid}__asso_SWM_${side}.trk -f
 
     scil_filter_tractogram.py ${sid}__tmp1_${side}.trk ${sid}__asso_only_in_CGM_${side}.trk \
-      --filtering_list ${params.FLF}not_in_SWM_${side}.txt -f
+      --filtering_list ${params.FLF}not_in_SWM_${side}.txt -f \
+      --overwrite_distance both_ends include 1 \
+      --overwrite_distance either_end include 1
 
     scil_tractogram_math.py difference ${sid}__tmp1_${side}.trk ${sid}__asso_only_in_CGM_${side}.trk \
                                  ${sid}__tmp2_${side}.trk -f
 
     scil_filter_tractogram.py ${sid}__tmp2_${side}.trk ${sid}__asso_Ushape_${side}.trk \
-      --filtering_list ${params.FLF}not_in_DWM_${side}.txt -f
+      --filtering_list ${params.FLF}not_in_DWM_${side}.txt -f \
+      --overwrite_distance both_ends include 1 \
+      --overwrite_distance either_end include 1
 
     scil_extract_ushape.py ${sid}__asso_Ushape_${side}.trk --minU 0.5 --maxU 1 ${sid}__asso_Ushape_${side}_u.trk -f
 
