@@ -287,7 +287,7 @@ process Extract_fornix{
     basename="${sid}"
     keep="$params.keep_intermediate_steps"
     extract_masks=""
-    distance="1"
+    distance=1
 
     template "filter_with_list.sh"
 }
@@ -302,8 +302,8 @@ process Extract_ee_cerebellum {
   output:
     set sid, "${sid}__wb_clean01_nocereb.trk" into wb_for_extract_end_in_brainstem
     set sid, "${sid}__all_cerebellum.trk" into ee_cerebellum_for_extract_plausible
-    file "${sid}__all_cerebellum.txt" optional true
-    file "${sid}__wb_clean01_nocereb.txt" optional true
+    file "${sid}__all_cerebellum.txt"
+    file "${sid}__wb_clean01_nocereb.txt"
 
   script:
   filtering_list=params.FLF+"out_cerebellum.txt"
@@ -363,8 +363,8 @@ process Extract_ee_brainstem {
   output:
     set sid, "${sid}__wb_clean02.trk" into wb_for_split_end_in_CGMSWI
     set sid, "${sid}__all_brainstem.trk" into all_brainstem_for_extract_plausible
-    file "${sid}__wb_clean02.txt" optional true
-    file "${sid}__all_brainstem.txt" optional true
+    file "${sid}__wb_clean02.txt"
+    file "${sid}__all_brainstem.txt"
 
   script:
     filtering_list=params.FLF+"out_brainstem.txt"
@@ -469,7 +469,7 @@ process Remove_out_of_CGM_DWM {
   output:
     set sid, "${sid}__wb_either_CGM_SWM.trk" into wb_for_extract_all_commissural
     set sid, "${sid}__no_CGM_SWM.trk" optional true
-    file "${sid}__wb_either_CGM_SWM.txt" optional true
+    file "${sid}__wb_either_CGM_SWM.txt"
     file "${sid}__no_CGM_SWM.txt" optional true
 
   script:
@@ -493,8 +493,8 @@ process Extract_all_commissural {
   output:
     set sid, "${sid}__tmp_CC.trk" into cc_for_extract_CC_Cx, cc_for_extract_AC_Cx, cc_for_extract_CC_BG, cc_tmp_for_commissural
     set sid, "${sid}__wb_either_CGM_SWM_noCC.trk" into no_cc_for_split_asso_BG
-    file "${sid}__wb_either_CGM_SWM_noCC.txt" optional true
-    file "${sid}__tmp_CC.txt" optional true
+    file "${sid}__wb_either_CGM_SWM_noCC.txt"
+    file "${sid}__tmp_CC.txt"
 
   script:
   filtering_list=params.FLF+"commissural.txt"
@@ -518,6 +518,7 @@ process Extract_plausible_CC_Cx {
   output:
     set sid, "${sid}__in_CC_Cx_f.trk" into cc_for_merge_plausible_01
     file "mask_atlas_roi_*.nii.gz" optional true
+    file "${sid}__in_CC_Cx_f.txt"
 
   script:
     filtering_list=params.FLF+"CC_Cx.txt"
@@ -539,6 +540,7 @@ process Extract_plausible_AC_Cx {
 
   output:
     set sid, "${sid}__in_AC_Cx_f.trk" into accx_for_trk_plausible, accx_for_rename, accx_for_commissural
+    file "${sid}__in_AC_Cx_f.txt"
 
   script:
     filtering_list=params.FLF+"AC_Cx.txt"
@@ -560,6 +562,7 @@ process Extract_plausible_CC_BG {
 
   output:
     set sid, "${sid}__in_CC_BG_f.trk" into ccbg_for_trk_plausible, ccbg_for_commissural
+    file "${sid}__in_CC_BG_f.txt"
 
   script:
     filtering_list=params.FLF+"CC_BG.txt"
@@ -568,7 +571,7 @@ process Extract_plausible_CC_BG {
     basename="${sid}"
     keep="$params.keep_intermediate_steps"
     extract_masks=""
-    distance="1"
+    distance=1
 
     template "filter_with_list.sh"
 }
@@ -585,9 +588,9 @@ process Split_no_CC_Asso_and_BG {
 
   output:
     set sid, "${sid}__all_subcortical_from_CGM_SWM_noCC_f.trk" into asso_BG_for_split_Thal, asso_BG_for_split_Put, asso_BG_for_split_Caud
-    file "${sid}__all_subcortical_from_CGM_SWM_noCC_f.txt" optional true
+    file "${sid}__all_subcortical_from_CGM_SWM_noCC_f.txt"
     set sid, "${sid}__asso_noBG.trk" into asso_noBG_for_split_hemi
-    file "${sid}__asso_noBG.txt" optional true
+    file "${sid}__asso_noBG.txt"
 
   script:
   filtering_list=params.FLF+"all_BG.txt"
@@ -619,6 +622,7 @@ process Split_BG_Thal {
     set sid, "${sid}__BG_ipsi_Thal_${list}_${side}.trk" into BG_ipsi_Thal_for_merge
     set sid, val(side), "${sid}__BG_ipsi_Thal_${list}_${side}.trk" into BG_ipsi_Thal_split_for_merge
     set sid, val(side), val(list), "${sid}__BG_ipsi_Thal_${list}_${side}.trk" into BG_ipsi_Thal_for_filter_CuGWM, BG_ipsi_Thal_for_filter_LGWM
+    file "${sid}__BG_ipsi_Thal_${list}_${side}.txt"
 
   script:
     filtering_list=params.FLF+"BG_ipsi_Thal_${list}_${side}.txt"
@@ -627,7 +631,7 @@ process Split_BG_Thal {
     basename="${sid}"
     keep="$params.keep_intermediate_steps"
     extract_masks=""
-    distance="1"
+    distance=1
 
     template "filter_with_list.sh"
 }
@@ -669,6 +673,7 @@ process Split_BG_Put {
   output:
     set sid, "${sid}__BG_ipsi_Put_${list}_${side}.trk" into BG_ipsi_Put_for_merge
     set sid, val(side), "${sid}__BG_ipsi_Put_${list}_${side}.trk" into BG_ipsi_Put_for_rename
+    file "${sid}__BG_ipsi_Put_${list}_${side}.txt"
 
   script:
     filtering_list=params.FLF+"BG_ipsi_Put_${list}_${side}.txt"
@@ -677,7 +682,7 @@ process Split_BG_Put {
     basename="${sid}"
     keep="true"
     extract_masks=""
-    distance="1"
+    distance=1
 
     template "filter_with_list.sh"
 }
@@ -714,6 +719,7 @@ process Split_BG_Caud {
   output:
     set sid, "${sid}__BG_ipsi_Caud_${list}_${side}.trk" into BG_ipsi_Caud_for_merge
     set sid, val(side), "${sid}__BG_ipsi_Caud_${list}_${side}.trk" into BG_ipsi_Caud_for_rename
+    file "${sid}__BG_ipsi_Caud_${list}_${side}.txt"
 
   script:
     filtering_list=params.FLF+"BG_ipsi_Caud_${list}_${side}.txt"
@@ -722,7 +728,7 @@ process Split_BG_Caud {
     basename="${sid}"
     keep="true"
     extract_masks=""
-    distance="1"
+    distance=1
 
     template "filter_with_list.sh"
 }
@@ -835,7 +841,7 @@ process Remove_Unplausible_Long_Range_Asso {
   output:
     set sid, val(side), "${sid}__asso_all_intra_inter_${side}.trk" into asso_all_intra_inter
     set sid, "${sid}__asso_lost2_${side}.trk" optional true
-    file "${sid}__asso_all_intra_inter_${side}.txt" optional true
+    file "${sid}__asso_all_intra_inter_${side}.txt"
     file "${sid}__asso_lost2_${side}.txt" optional true
 
   script:
@@ -896,6 +902,7 @@ process CC_Homotopic {
   output:
     set sid, "${sid}__cc_homotopic_${pair}.trk" into CC_Homotopic_for_merge
     set sid, val(pair), "${sid}__cc_homotopic_${pair}.trk" into CC_Homotopic_for_filter_AGWM, CC_Homotopic_for_filter_CingGWM, CC_Homotopic_for_filter_CuGWM, CC_Homotopic_for_filter_FuGWM, CC_Homotopic_for_filter_Hippo, CC_Homotopic_for_filter_IFGWM, CC_Homotopic_for_filter_Ins, CC_Homotopic_for_filter_IOGWM, CC_Homotopic_for_filter_ITGWM, CC_Homotopic_for_filter_LFOGWM, CC_Homotopic_for_filter_LGWM, CC_Homotopic_for_filter_MFGWM, CC_Homotopic_for_filter_MFOGWM, CC_Homotopic_for_filter_MOGWM, CC_Homotopic_for_filter_MTGWM, CC_Homotopic_for_filter_PHG, CC_Homotopic_for_filter_PoCGWM, CC_Homotopic_for_filter_PrCGWM, CC_Homotopic_for_filter_PrCuGWM, CC_Homotopic_for_filter_RGGWM, CC_Homotopic_for_filter_SFGWM, CC_Homotopic_for_filter_SMGWM, CC_Homotopic_for_filter_SOGWM, CC_Homotopic_for_filter_SPGWM, CC_Homotopic_for_filter_STGWM, CC_Homotopic_for_filter_T_pole_gwm
+    file "${sid}__cc_homotopic_${pair}.txt"
 
   script:
     filtering_list=params.FLF+"CC_homo_${pair}.txt"
@@ -1031,6 +1038,7 @@ process Asso_ventral {
 
   output:
     set sid, val(side), "${sid}__asso_F_${asso_list}_ventral_f_${side}.trk" into asso_all_intra_inter_ventral_for_merge
+    file "${sid}__asso_F_${asso_list}_ventral_f_${side}.txt"
 
   script:
     filtering_list=params.FLF+"ASSO_F_${asso_list}_ventral_${side}.txt"
@@ -1071,6 +1079,8 @@ process Split_asso_ventral_ifof_uf {
   output:
     set sid, val(side), "${sid}__asso_IFOF_f_${side}.trk" into asso_IFOF_for_rename
     set sid, val(side), "${sid}__asso_UF_f_${side}.trk" into asso_UF_for_rename
+    file "${sid}__asso_IFOF_f_${side}.txt"
+    file "${sid}__asso_UF_f_${side}.txt"
 
   script:
     filtering_list=params.FLF+"split_IFOF_UF_${side}.txt"
@@ -1100,7 +1110,7 @@ process Asso_dorsal_f_p {
   output:
     set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_all_intra_inter_dorsal_f_p_for_merge
     set sid, val(side), val(asso_list), "${sid}__asso_${asso_list}_${side}.trk" into asso_all_intra_inter_dorsal_f_p_for_rename
-    file "${sid}__asso_${asso_list}_${side}.txt" optional true
+    file "${sid}__asso_${asso_list}_${side}.txt"
 
   script:
     filtering_list=params.FLF+"ASSO_${asso_list}_${side}.txt"
@@ -1143,7 +1153,7 @@ process Asso_dorsal_f_o_f_t {
   output:
     set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_all_intra_inter_dorsal_all_f_o_f_t_for_merge
     set sid, val(side), val(asso_list), "${sid}__asso_${asso_list}_${side}.trk" into asso_all_intra_inter_dorsal_all_f_T_for_filter, asso_all_intra_inter_dorsal_all_f_O_for_filter
-    file "${sid}__asso_${asso_list}_${side}.txt" optional true
+    file "${sid}__asso_${asso_list}_${side}.txt"
 
   script:
     filtering_list=params.FLF+"ASSO_${asso_list}_${side}.txt"
@@ -1192,7 +1202,7 @@ process Asso_p_o {
 
   output:
     set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_intra_inter_p_o_for_merge
-    file "${sid}__asso_${asso_list}_${side}.txt" optional true
+    file "${sid}__asso_${asso_list}_${side}.txt"
 
   script:
     filtering_list=params.FLF+"ASSO_${asso_list}_${side}.txt"
@@ -1238,7 +1248,7 @@ process Asso_p_t {
 
   output:
     set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_intra_inter_p_t_for_merge
-    file "${sid}__asso_${asso_list}_${side}.txt" optional true
+    file "${sid}__asso_${asso_list}_${side}.txt"
 
   script:
     filtering_list=params.FLF+"ASSO_${asso_list}_${side}.txt"
@@ -1284,7 +1294,7 @@ process Asso_o_t {
 
   output:
     set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_intra_inter_o_t_for_merge
-    file "${sid}__asso_${asso_list}_${side}.txt" optional true
+    file "${sid}__asso_${asso_list}_${side}.txt"
 
   script:
     filtering_list=params.FLF+"ASSO_${asso_list}_${side}.txt"
@@ -1331,7 +1341,7 @@ process Asso_ins {
 
   output:
     set sid, val(side), "${sid}__asso_${asso_list}_${side}.trk" into asso_intra_inter_ins_for_merge
-    file "${sid}__asso_${asso_list}_${side}.txt" optional true
+    file "${sid}__asso_${asso_list}_${side}.txt"
 
   script:
     filtering_list=params.FLF+"ASSO_${asso_list}_${side}.txt"
@@ -1375,7 +1385,7 @@ process Asso_Cing {
   output:
     set sid, "${sid}__asso_all_Cing_${side}.trk" into Cing_for_trk_plausible
     set sid, val(side), "${sid}__asso_all_Cing_${side}.trk" into Cing_for_rename
-    file "${sid}__asso_all_Cing_${side}.txt" optional true
+    file "${sid}__asso_all_Cing_${side}.txt"
 
   script:
     filtering_list=params.FLF+"ASSO_Cing_${side}.txt"
@@ -1384,7 +1394,7 @@ process Asso_Cing {
     basename="${sid}"
     keep=false
     extract_masks=""
-    distance="1"
+    distance=1
 
     template "filter_with_list.sh"
 }
@@ -1980,6 +1990,7 @@ process Rename_corticopontine_F {
     each side from side_corticopontineF
   output:
     set sid, "${sid}__corticopontine_frontal_${side}_${params.template_space}.trk" into corticopontine_frontal_for_register_to_orig
+    file "${sid}__corticopontine_frontal_${side}_${params.template_space}.txt"
 
   when:
     params.extended
@@ -2009,6 +2020,7 @@ process Rename_corticopontine_POT {
 
   output:
     set sid, "${sid}__corticopontine_POT_${side}_${params.template_space}.trk" into corticopontine_POT_for_register_to_orig
+    file "${sid}__corticopontine_POT_${side}_${params.template_space}.txt"
 
   when:
     params.extended
@@ -2038,6 +2050,7 @@ process Rename_cst {
 
   output:
     set sid, "${sid}__cst_${side}_${params.template_space}.trk" into cst_for_register_to_orig
+    file "${sid}__cst_${side}_${params.template_space}.txt"
 
   when:
     params.extended

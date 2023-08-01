@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ ${distance} = "0" ]
+if [ "${distance}" = "0" ]
 then
 scil_filter_tractogram.py ${tractogram} ${basename}__${out_extension}.trk \
     --filtering_list ${filtering_list} ${extract_masks} -f \
@@ -11,10 +11,11 @@ scil_filter_tractogram.py ${tractogram} ${basename}__${out_extension}.trk \
      --overwrite_distance both_ends include ${distance} --overwrite_distance either_end include ${distance} --display_count  > ${basename}__${out_extension}.txt;
 fi
 
-if [ ${keep} = "true" ]
+if [ "${keep}" = "true" ]
 then
-  scil_streamlines_math.py difference ${tractogram} \
-                                      ${basename}__${out_extension}.trk \
-                                      ${sid}__${remaining_extension}.trk ;
+    scil_streamlines_math.py difference ${tractogram} \
+                                        ${basename}__${out_extension}.trk \
+                                        ${sid}__${remaining_extension}.trk ;
+    scil_count_streamlines.py ${sid}__${remaining_extension}.trk > ${sid}__${remaining_extension}.txt ;
 fi
  
