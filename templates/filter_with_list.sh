@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ ${distance} = "0"]
+if [ ${distance} = "0" ]
 then
 scil_filter_tractogram.py ${tractogram} ${basename}__${out_extension}.trk \
     --filtering_list ${filtering_list} ${extract_masks} -f \
@@ -17,3 +17,4 @@ then
                                       ${basename}__${out_extension}.trk \
                                       ${sid}__${remaining_extension}.trk ;
 fi
+ 
