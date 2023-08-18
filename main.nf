@@ -241,7 +241,7 @@ process Major_filtering {
         --minL ${params.min_streaminline_lenght} \
         --maxL ${params.max_streaminline_lenght} \
         -a ${params.loop_angle_threshold} \
-        --csf_bin ${params.rois_folder}${params.atlas.shell_limits} \
+        --csf_bin ${params.rois_folder}${params.atlas.csf_mask} \
         --processes ${params.processes_major_filtering}\
         -f
       mv ${sid}/${tractogram.getSimpleName()}_filtered.trk ${sid}__wb_clean01.trk
