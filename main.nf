@@ -231,8 +231,8 @@ process Major_filtering {
       set sid, file(tractogram) from for_major_filtering
 
     output:
-      set sid, "${sid}__wb_clean01.trk" into wb_for_extract_end_in_cerebellum, wb_for_extract_first_unplausible
-
+      set sid, "${sid}__wb_clean01.trk" into wb_for_extract_end_in_cerebellum
+      set sid, "${sid}__unplausible_streamlines.trk" into unplausible_for_fornix
     script:
     """
       scil_filter_tractogram_anatomically.py ${tractogram} \
@@ -243,29 +243,11 @@ process Major_filtering {
         -a ${params.loop_angle_threshold} \
         --csf_bin ${params.rois_folder}${params.atlas.csf_mask} \
         --processes ${params.processes_major_filtering}\
+        --save_intermediate_tractograms\
         -f
       mv ${sid}/${tractogram.getSimpleName()}_filtered.trk ${sid}__wb_clean01.trk
+      mv ${sid}/${tractogram.getSimpleName()}_rejected.trk ${sid}__unplausible_streamlines.trk
     """
-}
-
-trk_for_extract_first_unplausible.join(wb_for_extract_first_unplausible).set{unplausible_streamlines}
-
-
-process Extract_first_unplausible{
-  cpus 1
-
-  input:
-    set sid, file(tractogram1), file(tractogram2) from unplausible_streamlines
-
-  output:
-    set sid, "${sid}__unplausible_streamlines.trk" into unplausible_for_fornix
-
-  script:
-  """
-  scil_tractogram_math.py difference ${tractogram1} \
-                                      ${tractogram2} \
-                                      ${sid}__unplausible_streamlines.trk;
-  """
 }
 
 
@@ -428,13 +410,21 @@ process Extract_plausible_brainstem {
   scil_tractogram_math.py union ${sid}__ee_tmp_01.trk ${sid}__ee_tmp_02.trk\
       ${sid}__ee_tmp_03.trk -f
 
-  # Extract ee Fronto-pontine
-  scil_filter_tractogram.py ${sid}__ee_tmp_03.trk ${sid}__ee_fronto_pontine.trk\
-      --filtering_list ${params.FLF}brainstem_ee_F_pontine.txt -f
+  # Extract ee Fronto-pontine R and L
+  scil_filter_tractogram.py ${sid}__ee_tmp_03.trk ${sid}__ee_fronto_pontine_R.trk\
+      --filtering_list ${params.FLF}brainstem_ee_F_pontine_R.txt -f
+  scil_filter_tractogram.py ${sid}__ee_tmp_03.trk ${sid}__ee_fronto_pontine_L.trk\
+      --filtering_list ${params.FLF}brainstem_ee_F_pontine_L.txt -f
+  scil_tractogram_math.py union ${sid}__ee_fronto_pontine_L.trk ${sid}__ee_fronto_pontine_R.trk\
+      ${sid}__ee_fronto_pontine.trk -f
 
-  # Extract ee ParietoTemporooccipital pontine
-  scil_filter_tractogram.py ${sid}__ee_tmp_03.trk ${sid}__ee_parietotemporooccipital_pontine.trk\
-      --filtering_list ${params.FLF}brainstem_ee_PTO_pontine.txt -f
+  # Extract ee ParietoTemporooccipital pontine R and L
+  scil_filter_tractogram.py ${sid}__ee_tmp_03.trk ${sid}__ee_parietotemporooccipital_pontine_R.trk\
+      --filtering_list ${params.FLF}brainstem_ee_PTO_pontine_R.txt -f
+  scil_filter_tractogram.py ${sid}__ee_tmp_03.trk ${sid}__ee_parietotemporooccipital_pontine_L.trk\
+      --filtering_list ${params.FLF}brainstem_ee_PTO_pontine_L.txt -f
+  scil_tractogram_math.py union ${sid}__ee_parietotemporooccipital_pontine_L.trk ${sid}__ee_parietotemporooccipital_pontine_R.trk\
+      ${sid}__ee_parietotemporooccipital_pontine.trk -f
 
   # Extract ee Pyramidal
   scil_filter_tractogram.py ${sid}__ee_tmp_03.trk ${sid}__ee_pyramidal.trk\
@@ -1984,6 +1974,7 @@ process Rename_corticopontine_F {
   input:
     set sid, file(tractogram) from brainstem_corticopontine_frontal_for_rename
     each side from side_corticopontineF
+
   output:
     set sid, "${sid}__corticopontine_frontal_${side}_${params.template_space}.trk" into corticopontine_frontal_for_register_to_orig
     file "${sid}__corticopontine_frontal_${side}_${params.template_space}.txt"
