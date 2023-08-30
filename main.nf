@@ -244,6 +244,7 @@ process Major_filtering {
         --csf_bin ${params.rois_folder}${params.atlas.csf_mask} \
         --processes ${params.processes_major_filtering}\
         --save_intermediate_tractograms\
+        --save_rejected\
         -f
       mv ${sid}/${tractogram.getSimpleName()}_filtered.trk ${sid}__wb_clean01.trk
       mv ${sid}/${tractogram.getSimpleName()}_rejected.trk ${sid}__unplausible_streamlines.trk
