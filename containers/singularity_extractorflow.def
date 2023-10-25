@@ -1,5 +1,5 @@
 BootStrap: docker
-From: scilus/scilus:1.4.2
+From: scilus/scilus:1.6.0
 
 %setup
 	export ROIs=templates_and_ROIs.tar.bz2

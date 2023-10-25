@@ -1,3 +1,9 @@
+
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/scilus/extractor_flow)](https://github.com/scilus/extractor_flow/releases)
+[![Documentation Status](https://readthedocs.org/projects/extractor_flow/badge/?version=latest)](https://extractor_flow.readthedocs.io/en/latest/?badge=latest)
+[![Docker container badge](https://img.shields.io/docker/v/scilus/scilus-flows?label=docker&logo=docker&logoColor=white)](https://hub.docker.com/r/scilus/scilus-flows)
+
+
 ExtractorFlow pipeline
 ======================
 
