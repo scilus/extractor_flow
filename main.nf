@@ -233,7 +233,13 @@ process Major_filtering {
     output:
       set sid, "${sid}__wb_clean01.trk" into wb_for_extract_end_in_cerebellum
       set sid, "${sid}__unplausible_streamlines.trk" into unplausible_for_fornix
+      path "${sid}/*" optional true
+
     script:
+    keep_intermediate_trk_flag=""
+        if (params.keep_intermediate_steps) {
+            keep_intermediate_trk_flag="--save_intermediate_tractograms"
+        }
     """
       scil_filter_tractogram_anatomically.py ${tractogram} \
         ${params.rois_folder}${params.atlas.JHU_8} \
@@ -241,11 +247,12 @@ process Major_filtering {
         --minL ${params.min_streaminline_lenght} \
         --maxL ${params.max_streaminline_lenght} \
         -a ${params.loop_angle_threshold} \
-        --csf_bin ${params.rois_folder}${params.atlas.csf_mask} \
+        --csf_bin ${params.rois_folder}${params.atlas.csf} \
         --processes ${params.processes_major_filtering}\
-        --save_intermediate_tractograms\
         --save_rejected\
+        $keep_intermediate_trk_flag\
         -f
+
       mv ${sid}/${tractogram.getSimpleName()}_filtered.trk ${sid}__wb_clean01.trk
       mv ${sid}/${tractogram.getSimpleName()}_rejected.trk ${sid}__unplausible_streamlines.trk
     """
@@ -516,7 +523,7 @@ process Extract_plausible_CC_Cx {
     out_extension="in_CC_Cx_f"
     remaining_extension="garbage"
     basename="${sid}"
-    keep="$params.keep_intermediate_steps"
+    keep=false
     extract_masks=""
     distance="$params.distance"
 
@@ -538,7 +545,7 @@ process Extract_plausible_AC_Cx {
     out_extension="in_AC_Cx_f"
     remaining_extension="garbage"
     basename="${sid}"
-    keep="$params.keep_intermediate_steps"
+    keep=false
     extract_masks=""
     distance="$params.distance"
 
@@ -556,15 +563,18 @@ process Extract_plausible_CC_BG {
     file "${sid}__in_CC_BG_f.txt"
 
   script:
-    filtering_list=params.FLF+"CC_BG.txt"
-    out_extension="in_CC_BG_f"
-    remaining_extension="garbage"
-    basename="${sid}"
-    keep="$params.keep_intermediate_steps"
-    extract_masks=""
-    distance=1
+  """
+  scil_filter_tractogram.py ${tractogram} tmp.trk \
+    --filtering_list ${params.FLF}CC_BG.txt -f\
+    --overwrite_distance both_ends include 1\
+    --overwrite_distance either_end include 1
 
-    template "filter_with_list.sh"
+  scil_filter_streamlines_by_length.py tmp.trk\
+    ${sid}__in_CC_BG_f.trk\
+    --maxL 170
+
+  scil_count_streamlines.py ${sid}__in_CC_BG_f.trk > ${sid}__in_CC_BG_f.txt
+  """
 }
 
 /*
@@ -620,7 +630,7 @@ process Split_BG_Thal {
     out_extension="BG_ipsi_Thal_${list}_${side}"
     remaining_extension="garbage_BG_ipsi_Thal_${list}_${side}"
     basename="${sid}"
-    keep="$params.keep_intermediate_steps"
+    keep=false
     extract_masks=""
     distance=1
 
@@ -671,7 +681,7 @@ process Split_BG_Put {
     out_extension="BG_ipsi_Put_${list}_${side}"
     remaining_extension="garbage_BG_ipsi_Put_${list}_${side}"
     basename="${sid}"
-    keep="true"
+    keep=false
     extract_masks=""
     distance=1
 
@@ -717,7 +727,7 @@ process Split_BG_Caud {
     out_extension="BG_ipsi_Caud_${list}_${side}"
     remaining_extension="garbage_BG_ipsi_Caud_${list}_${side}"
     basename="${sid}"
-    keep="true"
+    keep=false
     extract_masks=""
     distance=1
 
@@ -896,7 +906,7 @@ process CC_Homotopic {
     out_extension="cc_homotopic_${pair}"
     remaining_extension="garbage_${pair}"
     basename="${sid}"
-    keep="$params.keep_intermediate_steps"
+    keep=false
     extract_masks=""
     distance="$params.distance"
 
