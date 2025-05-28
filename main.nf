@@ -1761,7 +1761,7 @@ process Merge_trk_plausible{
 
   script:
   """
-    scil_tractogram_math.py union ${tractogram} ${sid}__plausible_${params.template_space}_tmp.trk -f
+    scil_tractogram_math.py union ${tractogram} ${sid}__plausible_${params.template_space}_tmp.trk -f --no_metadata
     scil_shuffle_streamlines.py ${sid}__plausible_${params.template_space}_tmp.trk ${sid}__plausible_${params.template_space}.trk -f
   """
 }
